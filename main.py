@@ -33,7 +33,7 @@ def dataset_setup(args):
 
     if ds == 0:
         # need to set kitti_path to folder containing "05" and "poses"
-        kitti_path = "../kitti05/kitti/"
+        kitti_path = "data/kitti/"
         assert 'kitti_path' in locals()
         ground_truth = np.loadtxt(os.path.join(kitti_path, 'poses', '05.txt'))
         ground_truth = ground_truth[:, [-9, -1]]
@@ -43,7 +43,7 @@ def dataset_setup(args):
                       [0, 0, 1]])
     elif ds == 1:
         # Path containing the many files of Malaga 7.
-        malaga_path = "../malaga-urban-dataset-extract-07/"
+        malaga_path = "data/malaga-urban-dataset-extract-07/"
         assert 'malaga_path' in locals()
         images = os.listdir(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images'))
         left_images = images[2::2]
@@ -56,7 +56,7 @@ def dataset_setup(args):
         args.left_images = left_images
     elif ds == 2:
         # Path containing images, depths and all...
-        parking_path = "../parking"
+        parking_path = "data/parking"
         assert 'parking_path' in locals()
         last_frame = 598
         with open(os.path.join(parking_path, 'K.txt'), 'r') as file:
