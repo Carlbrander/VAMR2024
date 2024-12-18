@@ -275,6 +275,14 @@ class VisualOdometry:
                 newest_Hidden_state[3], candidate[3]
             )
 
+            #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
+            for i in candidate[3].T:
+                for j in newest_Hidden_state[3].T:
+                    if np.linalg.norm(i - j) < 20:
+                        indices_to_keep[np.where(np.all(newest_Hidden_state[3].T == j, axis=1))] = False
+
+
+
           
             # Indices where there is a match
             matched_indices = np.where(matches != -1)[0]
@@ -364,14 +372,24 @@ class VisualOdometry:
 
         return angle
     
-    def NMS_on_keypoints(self, keypoints, radius):
-
-        pass
+    def NMS_on_keypoints(self, new_keypoints, old_keypoints, radius=100):
 
 
+        #DOES NOT WORK YET 
 
 
+        #This function does NMS of the new_keypoints based on the old_keypoints
+        #if a new_keypoint is within a certain radius of an old_keypoint, it is added to the removal_index
 
+        removal_index = []
+
+        for i in range(new_keypoints.shape[1]):
+            for j in range(old_keypoints.shape[1]):
+                if np.linalg.norm(new_keypoints[:, i] - old_keypoints[:, j]) < radius:
+                    removal_index.append(i)
+                    break
+
+        return removal_index
 
     def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1, descriptors_1):
         
@@ -703,10 +721,13 @@ class VisualOdometry:
         # switch rows and columns to get the correct format
         new_keypoints = new_keypoints[[1, 0], :]
 
-        #TODO: We could possible here remove all the newly detected keypoints based on the keypoints
+        #Remove all the newly detected keypoints based on the keypoints
         # that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
-        self.NMS_on_keypoints(new_keypoints, 10)
+        removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=50)
 
+        #remove the newly detected keypoints that are too close to the already tracked keypoints
+        new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
+        new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
 
 
         # Add new keypoints & descriptors to the Hidden_state
@@ -978,18 +999,23 @@ class VisualOdometry:
         ax_3d_1.set_xlim((-4 * x_std )+ x_mean, (4 * x_std) + x_mean)
         ax_3d_1.set_ylim((-4 * z_std) + z_mean, (4 * z_std) + z_mean)
 
-        
-        
-
         #ax_3d_1.set_xlim((-4 * x_std )+ camera_x, (4 * x_std) + camera_x)
         #ax_3d_1.set_ylim((-4 * z_std) + camera_z, (4 * z_std) + camera_z)
 
+        # Compute the camera's forward direction in world coordinates
+        forward_vector = R.T @ np.array([0, 0, 1])
         
+        dx = forward_vector[0]
+        dz = forward_vector[2]
 
-
-
+        # Normalize the direction vector
+        norm = np.sqrt(dx**2 + dz**2)
+        dx /= norm
+        dz /= norm
 
         ax_3d_1.scatter(camera_x, camera_z, c='r', marker='x')
+        #add arrow in the direction the camera is looking:
+        ax_3d_1.quiver(camera_x, camera_z, dx, dz, color='r', pivot='tail')
         ax_3d_1.set_title('Top View')  
         
     def plot_2d(self, keypoints_history, triangulated_keypoints, ax):
