@@ -364,6 +364,15 @@ class VisualOdometry:
 
         return angle
     
+    def NMS_on_keypoints(self, keypoints, radius):
+
+        pass
+
+
+
+
+
+
     def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1, descriptors_1):
         
 
@@ -694,8 +703,12 @@ class VisualOdometry:
         # switch rows and columns to get the correct format
         new_keypoints = new_keypoints[[1, 0], :]
 
-        
-        
+        #TODO: We could possible here remove all the newly detected keypoints based on the keypoints
+        # that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
+        self.NMS_on_keypoints(new_keypoints, 10)
+
+
+
         # Add new keypoints & descriptors to the Hidden_state
         Hidden_state.append([new_keypoints, R_1, t_1.reshape(3,1), new_keypoints, R_1, t_1.reshape(3,1), new_descriptors, self.current_image_counter]) 
         
@@ -855,7 +868,7 @@ class VisualOdometry:
 
         #get a set of history landmarks without the latest landmarks (as they are also in the history landmarks as duplicated likely)
         historic_landmarks = []
-        for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
+        for landmarks in history_landmarks[max(-5,-len(history_landmarks)):-1]:
             for landmark in landmarks.T:
                 #check if it is in the latest landmarks
                 if np.all(np.abs(landmark - history_landmarks[-1].T) < 1e-6):
