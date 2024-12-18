@@ -110,8 +110,7 @@ class VisualOdometry:
                     distCoeffs=None,
                     iterationsCount=2000,
                     reprojectionError=8.0,
-                    confidence=0.999,
-                    flags=cv2.SOLVEPNP_P3P)
+                    confidence=0.999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
 
@@ -687,7 +686,6 @@ class VisualOdometry:
         optimized_landmarks_current = history.landmarks[-1]
 
         return optimized_R, optimized_t, optimized_landmarks_current, updated_keypoints, updated_descriptors, history.landmarks
-
 
     def add_new_landmarks(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history):
 
