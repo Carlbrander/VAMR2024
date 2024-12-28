@@ -10,7 +10,7 @@ from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
 from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
 
 class VisualOdometry:
-
+    
 
     def __init__(self, args):
         """
@@ -1186,4 +1186,9 @@ class VisualOdometry:
 
 
         self.current_image_counter += 1
+
+
+
+
+
         return keypoints_3, landmarks_3, descriptors_3, R_2, t_2, Hidden_state, history
