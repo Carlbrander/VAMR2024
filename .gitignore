@@ -1,4 +1,4 @@
 data/*
 .vscode/*
-.__pycache__/*
-./bootstrapping_utils/__pycache__/*
+__pycache__/*
+bootstrapping_utils/__pycache__/*

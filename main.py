@@ -11,6 +11,7 @@ def parse_arguments():
     # Parse arguments
     parser = ArgumentParser()
     parser.add_argument("--ds", type=int, default=0, help="Dataset to use. Options: 0: KITTI, 1: Malaga, 2: parking")
+    parser.add_argument("--use_sift", type=bool, default=True, help="Use SIFT instead of Harris")
     args = parser.parse_args()
 
 
@@ -18,12 +19,12 @@ def parse_arguments():
     args.corner_patch_size = 9
     args.harris_kappa = 0.08
     args.num_keypoints = 1000
-    args.nonmaximum_supression_radius = 8
+    args.nonmaximum_supression_radius = 5
     args.descriptor_radius = 9
     args.match_lambda = 4
 
     args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
-    args.min_baseline = 0.3 # only for the start anyway, adapted dynamically
+    args.min_baseline = 0.5 # only for the start anyway, adapted dynamically
 
     return args
 

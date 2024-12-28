@@ -76,29 +76,52 @@ def bootstrapping(args):
     K                   = args.K
 
 
+    if not args.use_sift:
+        #get keypoints of both images using 
+        harris_scores_0 = harris(img0, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
+        keypoints_0 = selectKeypoints(harris_scores_0, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
+        descriptors_0 = describeKeypoints(img0, keypoints_0, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
 
-    #get keypoints of both images using 
-    harris_scores_0 = harris(img0, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
-    keypoints_0 = selectKeypoints(harris_scores_0, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
-    descriptors_0 = describeKeypoints(img0, keypoints_0, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
-    
-    harris_scores_1 = harris(img1, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
-    keypoints_1 = selectKeypoints(harris_scores_1, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
-    descriptors_1 = describeKeypoints(img1, keypoints_1, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
-    
-    matches = matchDescriptors(descriptors_1, descriptors_0, args.match_lambda)
+        harris_scores_1 = harris(img1, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
+        keypoints_1 = selectKeypoints(harris_scores_1, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
+        descriptors_1 = describeKeypoints(img1, keypoints_1, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
 
-    #get matched keypoints from matches
-    matched_keypoints_1 = keypoints_1.T[matches != -1]
-    matched_keypoints_0 = keypoints_0.T[matches[matches != -1]]
+        matches = matchDescriptors(descriptors_1, descriptors_0, args.match_lambda)
 
-    #get matched descriptors from matches
-    matched_descriptors_1 = descriptors_1[:, matches != -1]
+        #get matched keypoints from matches
+        matched_keypoints_1 = keypoints_1.T[matches != -1]
+        matched_keypoints_0 = keypoints_0.T[matches[matches != -1]]
 
-    # Swap coordinates from (row, col) to (x, y)
-    matched_keypoints_0_xy = matched_keypoints_0[:, ::-1]
-    matched_keypoints_1_xy = matched_keypoints_1[:, ::-1]
+        #get matched descriptors from matches
+        matched_descriptors_1 = descriptors_1[:, matches != -1]
 
+        # Swap coordinates from (row, col) to (x, y)
+        matched_keypoints_0_xy = matched_keypoints_0[:, ::-1]
+        matched_keypoints_1_xy = matched_keypoints_1[:, ::-1]
+
+    if args.use_sift:
+        sift = cv2.SIFT_create()
+        keypoints_0, descriptors_0 = sift.detectAndCompute(img0, None)
+        keypoints_1, descriptors_1 = sift.detectAndCompute(img1, None)
+
+        # Match descriptors
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(descriptors_0, descriptors_1, k=2)
+
+        # Apply ratio test
+        good = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good.append(m)
+
+        # Get matched keypoints
+        matched_keypoints_0_xy = np.array([keypoints_0[match.queryIdx].pt for match in good])
+        matched_keypoints_1_xy = np.array([keypoints_1[match.trainIdx].pt for match in good])
+
+        # Get matched descriptors
+        matched_descriptors_1 = np.array([descriptors_1[match.trainIdx] for match in good]).T
+
+     
     #plot matches
     #plot_2d_bootstrapping(img0, img1, matched_keypoints_0_xy, matched_keypoints_1_xy, "Matched Keypoints")
 
