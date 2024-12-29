@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.optimize import least_squares
+from matplotlib.widgets import Button
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
 from bootstrapping_utils.exercise_3.harris import harris
@@ -10,7 +11,6 @@ from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
 from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
 
 class VisualOdometry:
-    
 
     def __init__(self, args):
         """
@@ -1098,26 +1098,42 @@ class VisualOdometry:
         return landmarks_positive, keypoints_positive, descriptors_positive
 
     def visualize_dashboard(self, triangulated_keypoints, triangulated_landmarks, history):
-        
-        fig = plt.figure(figsize=(15, 10))
-    
-        #plot Dashboard
-        self.plot_3d(history.landmarks, history.R, history.t, triangulated_landmarks, fig)
-        self.plot_top_view(history.landmarks, history.R, history.t, triangulated_landmarks, fig)
-        self.plot_2d(history.keypoints, triangulated_keypoints, fig)
-        self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, fig)
+        # Check if figure exists, if not create it
+        if not hasattr(self, 'fig'):
+            self.fig = plt.figure(figsize=(15, 10))
+            self.mng = plt.get_current_fig_manager()
+            self.mng.window.state('zoomed')  # This works for TkAgg backend
 
-        #Add text on a free space between subplots for tracking parameters
-        fig.text(0.27, 0.55, f'Threshold Angle: {self.threshold_angle}', ha='center', va='center', fontsize=12)
-        #text right below
-        fig.text(0.27, 0.53, f'New Keypoints Detection: {self.num_keypoints}', ha='center', va='center', fontsize=12)
+            # Pause logic
+            self.paused = [False]
 
+        def toggle_pause(event):
+            self.paused[0] = not self.paused[0]
 
+        # Clear the figure to update it
+        self.fig.clf()
 
-        plt.tight_layout()
+        # Plot Dashboard
+        self.plot_3d(history.landmarks, history.R, history.t, triangulated_landmarks, self.fig)
+        self.plot_top_view(history.landmarks, history.R, history.t, triangulated_landmarks, self.fig)
+        self.plot_2d(history.keypoints, triangulated_keypoints, self.fig)
+        self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
 
-        plt.show()
-        cv2.waitKey(0)
+        # Add text on a free space between subplots for tracking parameters
+        self.fig.text(0.27, 0.55, f'Threshold Angle: {self.threshold_angle}', ha='center', va='center', fontsize=12)
+        self.fig.text(0.27, 0.53, f'New Keypoints Detection: {self.num_keypoints}', ha='center', va='center', fontsize=12)
+
+        # Draw the pause button
+        pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
+        self.pause_button = Button(pause_button_ax, 'Pause/Resume')
+        self.pause_button.on_clicked(toggle_pause)
+
+        self.fig.canvas.draw()
+        plt.pause(0.01)
+
+        # Pause loop
+        while self.paused[0]:
+            plt.pause(0.1)
 
     def plot_3d(self,history_landmarks, history_R, history_t, triangulated_landmarks, ax):
 

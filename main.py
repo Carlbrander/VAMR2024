@@ -128,9 +128,6 @@ def load_image(ds, i,args):
 
     return image
 
-
-
-
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
 
     prev_img = args.img1
@@ -154,9 +151,6 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         
         #update previous image
         prev_img = image
-
-
-
 
 
 if __name__ == "__main__":
