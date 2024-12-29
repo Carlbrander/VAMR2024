@@ -7,6 +7,8 @@ from io import StringIO
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 
+from plot import Plotter
+
 def parse_arguments():
     # Parse arguments
     parser = ArgumentParser()
@@ -96,6 +98,7 @@ def dataset_setup(args):
     args.K = K
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
+    args.ground_truth = ground_truth
 
     args.img0 = img0
     args.img1 = img1
@@ -114,6 +117,9 @@ class History:
         self.triangulated_keypoints = [np.array([])]
         #initiate hidde state history
         self.Hidden_states = []
+        self.camera_poses = [np.eye(4)]
+        self.threshold_angles = []
+        self.num_keypoints = []
 
 def load_image(ds, i,args):
 
@@ -131,12 +137,9 @@ def load_image(ds, i,args):
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
 
     prev_img = args.img1
-
-
     vo = VisualOdometry(args)
-
+    plotter = Plotter()
     Hidden_state = []
-
   
     # Continuous operation
     for i in range(args.bootstrap_frames[1] + 1, args.last_frame + 1):
@@ -147,7 +150,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
 
         
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
-        
+        plotter.visualize_dashboard(history, image)
         
         #update previous image
         prev_img = image
