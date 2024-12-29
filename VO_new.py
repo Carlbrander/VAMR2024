@@ -1125,6 +1125,8 @@ class VisualOdometry:
         ###estimate motion using PnP###
         R_1,t_1 = self.estimate_motion(keypoints_1, landmarks_1)
 
+        history.camera_position.append(-R_1.T @ t_1)
+
         ###Triangulate new Landmarks###
 
         # Adapt Parameter for Landmark Detection dynamically #

@@ -4,25 +4,23 @@ import cv2
 import numpy as np
 
 class Plotter:
-    def __init__(self):
+    def __init__(self, camera_positions):
         self.fig = plt.figure(figsize=(15, 10))
         self.mng = plt.get_current_fig_manager()
         self.mng.window.state('zoomed')  # This works for TkAgg backend
+        self.gt_camera_position = camera_positions
 
         # Pause logic
         self.paused = [False]
-
-    def toggle_pause(self, event):
-        self.paused[0] = not self.paused[0]
 
     def visualize_dashboard(self, history, img):
         # Clear the figure to update it
         self.fig.clf()
 
         # Plot Dashboard
-        self.plot_3d(history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
-        self.plot_top_view(history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
-        self.plot_2d(history.keypoints, history.triangulated_keypoints[-1], self.fig, img)
+        self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
+        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
 
         # Add text on a free space between subplots for tracking parameters
@@ -41,9 +39,9 @@ class Plotter:
         while self.paused[0]:
             plt.pause(0.1)
 
-    def plot_3d(self,history_landmarks, history_R, history_t, triangulated_landmarks, ax):
+    def plot_3d(self,history_landmarks, history, triangulated_landmarks):
 
-        ax_3d = ax.add_subplot(221, projection='3d')
+        ax_3d = self.fig.add_subplot(221, projection='3d')
        
        
         ax_3d.view_init(elev=0, azim=-90)
@@ -93,36 +91,20 @@ class Plotter:
         if triangulated_landmarks.size != 0:
             ax_3d.scatter(triangulated_landmarks[0, :], triangulated_landmarks[1, :], triangulated_landmarks[2, :], c='r', marker='o')
 
-        
+        camera_x = [point[0] for point in history.camera_position]
+        camera_y = [point[1] for point in history.camera_position]
+        camera_z = [point[2] for point in history.camera_position]
 
-        #plot camera positions in green
-        for i in range(len(history_R[:-1])):
-            R = history_R[i]
-            t = history_t[i]
-            camera_position = -R.T @ t
-
-            camera_x = camera_position[0]
-            camera_y = camera_position[1]
-            camera_z = camera_position[2]
-
-            ax_3d.scatter(camera_x, camera_y, camera_z, c='g', marker='x', s=100)
+        ax_3d.scatter(camera_x, camera_y, camera_z, c='g', marker='x', s=100)
 
 
         # Plot the latest pose in red
-        R = history_R[-1]
-        t = history_t[-1]
-        camera_position = -R.T @ t
-
-        camera_x = camera_position[0]
-        camera_y = camera_position[1]
-        camera_z = camera_position[2]
-
-        ax_3d.scatter(camera_x, camera_y, camera_z, c='r', marker='x', s=100)
+        ax_3d.scatter(history.camera_position[-1][0], history.camera_position[-1][1], history.camera_position[-1][2], c='r', marker='x', s=100)
 
 
         ############################################################
        
-    def plot_top_view(self, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
+    def plot_top_view(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
         #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
         ax_3d_1 = ax.add_subplot(222)
         ax_3d_1.set_xlabel('X')
@@ -140,24 +122,17 @@ class Plotter:
         if triangulated_landmarks.size != 0:
             ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
 
-        #plot camera positions in green
-        for i in range(len(history_R[:-1])):
-            R = history_R[i]
-            t = history_t[i]
-            camera_position = -R.T @ t
 
-            camera_x = camera_position[0]
-            camera_z = camera_position[2]
+        camera_x = [point[0] for point in history.camera_position]
+        camera_z = [point[2] for point in history.camera_position]
+        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
+        camera_z_gt = [point[2] for point in self.gt_camera_position[:len(history.camera_position)]]
+        ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
+        ax_3d_1.scatter(camera_x_gt, camera_z_gt, c='b', marker='o')
 
-            ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
 
         # Plot the latest pose in red
-        R = history_R[-1]
-        t = history_t[-1]
-        camera_position = -R.T @ t
-
-        camera_x = camera_position[0]
-        camera_z = camera_position[2]
+        ax_3d_1.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x')
 
         #set the limits of the plot to 4* the standard deviation of the landmarks in x and z direction
         #this is to make sure that the plot is not too zoomed in and doesnt explode if there is one mismatch
@@ -175,7 +150,7 @@ class Plotter:
         #ax_3d_1.set_ylim((-4 * z_std) + camera_z, (4 * z_std) + camera_z)
 
         # Compute the camera's forward direction in world coordinates
-        forward_vector = R.T @ np.array([0, 0, 1])
+        forward_vector = history_R[-1].T @ np.array([0, 0, 1])
         
         dx = forward_vector[0]
         dz = forward_vector[2]
@@ -185,16 +160,17 @@ class Plotter:
         dx /= norm
         dz /= norm
 
-        ax_3d_1.scatter(camera_x, camera_z, c='r', marker='x')
         #add arrow in the direction the camera is looking:
-        ax_3d_1.quiver(camera_x, camera_z, dx, dz, color='r', pivot='tail')
+        ax_3d_1.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
         ax_3d_1.set_title('Top View')  
         
-    def plot_2d(self, keypoints_history, triangulated_keypoints, ax, img):
-       
+    def plot_2d(self, img, history):
+        
+        triangulated_keypoints = history.triangulated_keypoints[-1]
+        keypoints_history = history.keypoints
 
         #add image to bottom subplot
-        ax_2d = ax.add_subplot(223)
+        ax_2d = self.fig.add_subplot(223)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -266,3 +242,6 @@ class Plotter:
 
         ax_4.set_title('Line Graph')
         ax_4.legend(loc='lower left')
+    
+    def toggle_pause(self, event):
+        self.paused[0] = not self.paused[0]

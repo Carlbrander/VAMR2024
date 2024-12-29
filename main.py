@@ -30,6 +30,40 @@ def parse_arguments():
 
     return args
 
+def read_poses_kitti(file_path):
+    poses = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            values = list(map(float, line.split()))
+            R = np.array(values[:9]).reshape(3, 3)
+            t = np.array(values[9:]).reshape(3, 1)
+            poses.append((R, t))
+    return poses
+
+def compute_camera_positions(poses):
+    camera_positions = []
+    for R, t in poses:
+        camera_position = t #-R.T @ t
+        camera_positions.append(camera_position.flatten())
+    return np.array(camera_positions)
+
+def plot_camera_trajectory(camera_positions, title="Camera Trajectory"):
+    fig, ax = plt.subplots()
+    num_positions = camera_positions.shape[0]
+    colors = plt.cm.viridis(np.linspace(0, 1, num_positions))
+    
+    for i in range(num_positions - 1):
+        ax.plot(camera_positions[i:i+2, 0], camera_positions[i:i+2, 2], color=colors[i])
+    
+    ax.set_xlabel("X")
+    ax.set_ylabel("Z")
+    ax.set_title(title)
+    ax.plot(camera_positions[0, 0], camera_positions[0, 2], 'go', label="Start")
+    ax.plot(camera_positions[-1, 0], camera_positions[-1, 2], 'ro', label="End")
+    ax.legend()
+    plt.draw()
+    plt.pause(2)
+
 def dataset_setup(args):
 
     ds = args.ds
@@ -38,8 +72,7 @@ def dataset_setup(args):
         # need to set kitti_path to folder containing "05" and "poses"
         kitti_path = "data/kitti/"
         assert 'kitti_path' in locals()
-        ground_truth = np.loadtxt(os.path.join(kitti_path, 'poses', '05.txt'))
-        ground_truth = ground_truth[:, [-9, -1]]
+        poses = read_poses_kitti(os.path.join(kitti_path, 'poses', '05.txt'))
         last_frame = 4540
         K = np.array([[7.188560000000e+02, 0, 6.071928000000e+02],
                       [0, 7.188560000000e+02, 1.852157000000e+02],
@@ -98,10 +131,12 @@ def dataset_setup(args):
     args.K = K
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
-    args.ground_truth = ground_truth
+    args.gt_Rt = poses
+    args.gt_camera_position = compute_camera_positions(poses)
 
     args.img0 = img0
     args.img1 = img1
+    plot_camera_trajectory(args.gt_camera_position)
 
     return args
 
@@ -117,7 +152,7 @@ class History:
         self.triangulated_keypoints = [np.array([])]
         #initiate hidde state history
         self.Hidden_states = []
-        self.camera_poses = [np.eye(4)]
+        self.camera_position = []
         self.threshold_angles = []
         self.num_keypoints = []
 
@@ -138,7 +173,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
 
     prev_img = args.img1
     vo = VisualOdometry(args)
-    plotter = Plotter()
+    plotter = Plotter(args.gt_camera_position)
     Hidden_state = []
   
     # Continuous operation
@@ -150,6 +185,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
 
         
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
+        
         plotter.visualize_dashboard(history, image)
         
         #update previous image
