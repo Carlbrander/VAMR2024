@@ -136,7 +136,7 @@ def dataset_setup(args):
 
     args.img0 = img0
     args.img1 = img1
-    plot_camera_trajectory(args.gt_camera_position)
+    # plot_camera_trajectory(args.gt_camera_position)
 
     return args
 
