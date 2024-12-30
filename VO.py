@@ -208,7 +208,7 @@ class VisualOdometry:
         t_1 = translation_vector
 
 
-        return R_1, t_1
+        return R_1, t_1, inliers
 
     def triangulate_landmarks(self, keypoints_1, keypoints_2, R_1, t_1, R_2, t_2):
         """
@@ -1123,8 +1123,12 @@ class VisualOdometry:
         descriptors_1 = descriptors_0[:, st == 1]
 
         ###estimate motion using PnP###
-        R_1,t_1 = self.estimate_motion(keypoints_1, landmarks_1)
-
+        R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
+        # Use inliers to filter out outliers from keypoints and landmarks
+        inliers = inliers.flatten()
+        keypoints_1 = keypoints_1[:, inliers]
+        landmarks_1 = landmarks_1[:, inliers]
+        descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
 
         ###Triangulate new Landmarks###
