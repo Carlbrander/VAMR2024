@@ -60,6 +60,8 @@ def plot_camera_trajectory(camera_positions, title="Camera Trajectory"):
     ax.set_title(title)
     ax.plot(camera_positions[0, 0], camera_positions[0, 2], 'go', label="Start")
     ax.plot(camera_positions[-1, 0], camera_positions[-1, 2], 'ro', label="End")
+    ax.set_xlim(np.min(camera_positions[:, 0]), np.max(camera_positions[:, 0]))
+    ax.set_ylim(np.min(camera_positions[:, 2]), np.max(camera_positions[:, 2]))
     ax.legend()
     plt.draw()
     plt.pause(2)
@@ -132,8 +134,7 @@ def dataset_setup(args):
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
     args.gt_Rt = poses
-    args.gt_camera_position = compute_camera_positions(poses)
-
+    args.gt_camera_position = compute_camera_positions(poses)[bootstrap_frames[1]+1:]
     args.img0 = img0
     args.img1 = img1
     # plot_camera_trajectory(args.gt_camera_position)
@@ -169,6 +170,12 @@ def load_image(ds, i,args):
 
     return image
 
+def getScale(gt_camera_position, t):
+    scale_VO = np.linalg.norm(t)
+    scale_gt = np.linalg.norm(gt_camera_position)
+    scale = scale_gt/scale_VO
+    return scale
+
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
 
     prev_img = args.img1
@@ -202,6 +209,11 @@ if __name__ == "__main__":
 
     #Bootstrapping
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
+
+    # get scale
+    scale = getScale(args.gt_camera_position[0], t)
+    t = t*scale
+    landmarks = landmarks*scale
 
     #Initialize History
     history = History(keypoints, landmarks, R, t)

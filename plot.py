@@ -128,7 +128,8 @@ class Plotter:
         camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
         camera_z_gt = [point[2] for point in self.gt_camera_position[:len(history.camera_position)]]
         ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
-        ax_3d_1.scatter(camera_x_gt, camera_z_gt, c='b', marker='o')
+        ax_3d_1.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
+        ax_3d_1.legend()
 
 
         # Plot the latest pose in red
