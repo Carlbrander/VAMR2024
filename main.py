@@ -2,7 +2,7 @@ import os
 import numpy as np
 import cv2
 from Bootstrapping import bootstrapping
-from VO_new import VisualOdometry
+from VO import VisualOdometry
 from io import StringIO
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
@@ -24,6 +24,10 @@ def parse_arguments():
     args.nonmaximum_supression_radius = 5
     args.descriptor_radius = 9
     args.match_lambda = 4
+    args.use_BA = False
+    args.use_pose_refinement = False
+    args.max_depth = 100
+
 
     args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
     args.min_baseline = 0.5 # only for the start anyway, adapted dynamically
@@ -36,8 +40,8 @@ def read_poses_kitti(file_path):
         for line in file:
             values = list(map(float, line.split()))
             R = np.array(values[:9]).reshape(3, 3)
-            t = np.array(values[9:]).reshape(3, 1)
-            poses.append((R, t))
+            t = np.array([values[3], values[-1]]).reshape(2, 1)
+            poses.append((t))
     return poses
 
 def compute_camera_positions(poses):
@@ -49,22 +53,27 @@ def compute_camera_positions(poses):
 
 def plot_camera_trajectory(camera_positions, title="Camera Trajectory"):
     fig, ax = plt.subplots()
-    num_positions = camera_positions.shape[0]
+    num_positions = len(camera_positions)
     colors = plt.cm.viridis(np.linspace(0, 1, num_positions))
     
-    for i in range(num_positions - 1):
-        ax.plot(camera_positions[i:i+2, 0], camera_positions[i:i+2, 2], color=colors[i])
+    # for i in range(num_positions - 1):
+    #     ax.plot(camera_positions[i:i+2][0], camera_positions[i:i+2][1], color=colors[i])
     
+    camera_x_gt = [point[0] for point in camera_positions]
+    camera_z_gt = [point[1] for point in camera_positions]
+    ax.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
+    ax.legend()
+
     ax.set_xlabel("X")
     ax.set_ylabel("Z")
     ax.set_title(title)
-    ax.plot(camera_positions[0, 0], camera_positions[0, 2], 'go', label="Start")
-    ax.plot(camera_positions[-1, 0], camera_positions[-1, 2], 'ro', label="End")
-    ax.set_xlim(np.min(camera_positions[:, 0]), np.max(camera_positions[:, 0]))
-    ax.set_ylim(np.min(camera_positions[:, 2]), np.max(camera_positions[:, 2]))
+    ax.plot(camera_x_gt[0], camera_z_gt[0], 'go', label="Start")
+    ax.plot(camera_x_gt[-1], camera_z_gt[-1], 'ro', label="End")
+    ax.set_xlim(np.min(camera_x_gt), np.max(camera_x_gt))
+    ax.set_ylim(np.min(camera_z_gt), np.max(camera_z_gt))
     ax.legend()
     plt.draw()
-    plt.pause(2)
+    plt.pause(1)
 
 def dataset_setup(args):
 
@@ -134,10 +143,10 @@ def dataset_setup(args):
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
     args.gt_Rt = poses
-    args.gt_camera_position = compute_camera_positions(poses)[bootstrap_frames[1]+1:]
+    args.gt_camera_position = poses
     args.img0 = img0
     args.img1 = img1
-    # plot_camera_trajectory(args.gt_camera_position)
+    plot_camera_trajectory(args.gt_camera_position)
 
     return args
 
@@ -171,9 +180,7 @@ def load_image(ds, i,args):
     return image
 
 def getScale(gt_camera_position, t):
-    scale_VO = np.linalg.norm(t)
-    scale_gt = np.linalg.norm(gt_camera_position)
-    scale = scale_gt/scale_VO
+    scale = -gt_camera_position[1]/t[2]
     return scale
 
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
@@ -211,9 +218,8 @@ if __name__ == "__main__":
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
 
     # get scale
-    scale = getScale(args.gt_camera_position[0], t)
-    t = t*scale
-    landmarks = landmarks*scale
+    scale = getScale(args.gt_camera_position[args.bootstrap_frames[1]], t)
+    args.gt_camera_position = args.gt_camera_position*scale
 
     #Initialize History
     history = History(keypoints, landmarks, R, t)

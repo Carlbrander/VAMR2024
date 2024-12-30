@@ -41,65 +41,67 @@ class Plotter:
 
     def plot_3d(self,history_landmarks, history, triangulated_landmarks):
 
-        ax_3d = self.fig.add_subplot(221, projection='3d')
-       
-       
-        ax_3d.view_init(elev=0, azim=-90)
-        ax_3d.set_xlabel('X')
-        ax_3d.set_ylabel('Y')
-        ax_3d.set_zlabel('Z')
-
-        #set axis lim
-        ax_3d.set_xlim(-25, 25)
-        ax_3d.set_ylim(-25, 25)
-        ax_3d.set_zlim(0, 50)
-
-        ax_3d.set_title('3D Plot')
+        ax_3d = self.fig.add_subplot(221)
+        
+        # Plot estimated trajectory
+        est_trans_x = [point[0] for point in history.camera_position]
+        est_trans_z = [point[2] for point in history.camera_position]
+        ax_3d.plot(est_trans_x, est_trans_z, 'r', marker='*', markersize=3, label='Estimated pose')
+        
+        # Plot ground truth trajectory if available
+        if len(self.gt_camera_position) > 0:
+            gt_x = [point[0] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
+            gt_z = [point[1] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
+            ax_3d.plot(gt_x, gt_z, 'b', marker='*', markersize=3, label='Scaled GT')
+        
+        ax_3d.set_title('Estimated trajectory')
+        ax_3d.axis('equal')
+        ax_3d.legend(fontsize=8, loc='best')
         
 
-        #get a set of history landmarks without the latest landmarks (as they are also in the history landmarks as duplicated likely)
-        historic_landmarks = []
-        for landmarks in history_landmarks[max(-5,-len(history_landmarks)):-1]:
-            for landmark in landmarks.T:
-                #check if it is in the latest landmarks
-                if np.all(np.abs(landmark - history_landmarks[-1].T) < 0.1):
-                    continue
-                historic_landmarks.append(landmark)
+        # #get a set of history landmarks without the latest landmarks (as they are also in the history landmarks as duplicated likely)
+        # historic_landmarks = []
+        # for landmarks in history_landmarks[max(-5,-len(history_landmarks)):-1]:
+        #     for landmark in landmarks.T:
+        #         #check if it is in the latest landmarks
+        #         if np.all(np.abs(landmark - history_landmarks[-1].T) < 0.1):
+        #             continue
+        #         historic_landmarks.append(landmark)
 
-        historic_landmarks = np.array(historic_landmarks).T
-        ax_3d.scatter(historic_landmarks[0, :], historic_landmarks[1, :], historic_landmarks[2, :], c='y', marker='o')
-
-
+        # historic_landmarks = np.array(historic_landmarks).T
+        # ax_3d.scatter(historic_landmarks[0, :], historic_landmarks[1, :], historic_landmarks[2, :], c='y', marker='o')
 
 
 
-        #for landmarks in history_landmarks[-len(history_landmarks):-1]:
-        #    ax_3d.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c='y', marker='o')
+
+
+        # #for landmarks in history_landmarks[-len(history_landmarks):-1]:
+        # #    ax_3d.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c='y', marker='o')
 
 
         
-        #plot landmarks from current frame in blue which have not been plotted before
+        # #plot landmarks from current frame in blue which have not been plotted before
 
-        #get a set of latest landmarks without the triangulated_landmarks
-        latest_landmarks = history_landmarks[-1][:, :]
-        if triangulated_landmarks.size != 0:
-            latest_landmarks = latest_landmarks[:, :-triangulated_landmarks.shape[1]]
-        ax_3d.scatter(latest_landmarks[0, :], latest_landmarks[1, :], latest_landmarks[2, :], c='b', marker='o')
-        #ax.scatter(history_landmarks[-1][0, :], history_landmarks[-1][1, :], history_landmarks[-1][2, :], c='b', marker='o')
+        # #get a set of latest landmarks without the triangulated_landmarks
+        # latest_landmarks = history_landmarks[-1][:, :]
+        # if triangulated_landmarks.size != 0:
+        #     latest_landmarks = latest_landmarks[:, :-triangulated_landmarks.shape[1]]
+        # ax_3d.scatter(latest_landmarks[0, :], latest_landmarks[1, :], latest_landmarks[2, :], c='b', marker='o')
+        # #ax.scatter(history_landmarks[-1][0, :], history_landmarks[-1][1, :], history_landmarks[-1][2, :], c='b', marker='o')
 
-        #plot triangulated landmarks in red
-        if triangulated_landmarks.size != 0:
-            ax_3d.scatter(triangulated_landmarks[0, :], triangulated_landmarks[1, :], triangulated_landmarks[2, :], c='r', marker='o')
+        # #plot triangulated landmarks in red
+        # if triangulated_landmarks.size != 0:
+        #     ax_3d.scatter(triangulated_landmarks[0, :], triangulated_landmarks[1, :], triangulated_landmarks[2, :], c='r', marker='o')
 
-        camera_x = [point[0] for point in history.camera_position]
-        camera_y = [point[1] for point in history.camera_position]
-        camera_z = [point[2] for point in history.camera_position]
+        # camera_x = [point[0] for point in history.camera_position]
+        # camera_y = [point[1] for point in history.camera_position]
+        # camera_z = [point[2] for point in history.camera_position]
 
-        ax_3d.scatter(camera_x, camera_y, camera_z, c='g', marker='x', s=100)
+        # ax_3d.scatter(camera_x, camera_y, camera_z, c='g', marker='x', s=100)
 
 
-        # Plot the latest pose in red
-        ax_3d.scatter(history.camera_position[-1][0], history.camera_position[-1][1], history.camera_position[-1][2], c='r', marker='x', s=100)
+        # # Plot the latest pose in red
+        # ax_3d.scatter(history.camera_position[-1][0], history.camera_position[-1][1], history.camera_position[-1][2], c='r', marker='x', s=100)
 
 
         ############################################################
@@ -125,8 +127,8 @@ class Plotter:
 
         camera_x = [point[0] for point in history.camera_position]
         camera_z = [point[2] for point in history.camera_position]
-        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
-        camera_z_gt = [point[2] for point in self.gt_camera_position[:len(history.camera_position)]]
+        camera_x_gt = [point[0] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
+        camera_z_gt = [point[1] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
         ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
         ax_3d_1.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
         ax_3d_1.legend()
