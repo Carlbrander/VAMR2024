@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 
 from plot import Plotter
+from benchmark import Benchmarker
 
 def parse_arguments():
     # Parse arguments
@@ -187,7 +188,9 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
 
     prev_img = args.img1
     vo = VisualOdometry(args)
-    plotter = Plotter(args.gt_camera_position)
+    benchmarker = Benchmarker(args.gt_camera_position, args.ds)
+    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm)
+
     Hidden_state = []
   
     # Continuous operation
@@ -197,10 +200,10 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         
         image = load_image(args.ds, i, args)
 
-        
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
         
-        plotter.visualize_dashboard(history, image)
+        RMS, is_benchmark = benchmarker.process(history.camera_position, i)
+        plotter.visualize_dashboard(history, image, RMS, is_benchmark)
         
         #update previous image
         prev_img = image

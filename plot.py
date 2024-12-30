@@ -4,16 +4,17 @@ import cv2
 import numpy as np
 
 class Plotter:
-    def __init__(self, camera_positions):
+    def __init__(self, camera_positions, camera_position_bm):
         self.fig = plt.figure(figsize=(15, 10))
         self.mng = plt.get_current_fig_manager()
         self.mng.window.state('zoomed')  # This works for TkAgg backend
-        self.gt_camera_position = camera_positions
+        self.gt_camera_position = camera_positions[2:-1]
+        self.camera_position_bm = camera_position_bm
 
         # Pause logic
         self.paused = [False]
 
-    def visualize_dashboard(self, history, img):
+    def visualize_dashboard(self, history, img, RMS, is_benchmark):
         # Clear the figure to update it
         self.fig.clf()
 
@@ -24,9 +25,11 @@ class Plotter:
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
 
         # Add text on a free space between subplots for tracking parameters
-        self.fig.text(0.27, 0.55, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
-        self.fig.text(0.27, 0.53, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
-
+        self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
+        self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
+        color = 'green' if is_benchmark else 'black'
+        self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
+        
         # Draw the pause button
         pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
         self.pause_button = Button(pause_button_ax, 'Pause/Resume')
@@ -50,9 +53,12 @@ class Plotter:
         
         # Plot ground truth trajectory if available
         if len(self.gt_camera_position) > 0:
-            gt_x = [point[0] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
-            gt_z = [point[1] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
+            gt_x = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
+            gt_z = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
+            bm_x = [point[0] for point in self.camera_position_bm[:len(history.camera_position)]]
+            bm_z = [point[1] for point in self.camera_position_bm[:len(history.camera_position)]]
             ax_3d.plot(gt_x, gt_z, 'b', marker='*', markersize=3, label='Scaled GT')
+            ax_3d.plot(bm_x, bm_z, 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Estimated trajectory')
         ax_3d.axis('equal')
@@ -127,8 +133,8 @@ class Plotter:
 
         camera_x = [point[0] for point in history.camera_position]
         camera_z = [point[2] for point in history.camera_position]
-        camera_x_gt = [point[0] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
-        camera_z_gt = [point[1] for point in self.gt_camera_position[2:len(history.camera_position)+2]]
+        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
+        camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
         ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
         ax_3d_1.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
         ax_3d_1.legend()
