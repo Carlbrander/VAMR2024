@@ -7,7 +7,7 @@ class Plotter:
     def __init__(self, camera_positions, camera_position_bm):
         self.fig = plt.figure(figsize=(15, 10))
         self.mng = plt.get_current_fig_manager()
-        self.mng.window.state('zoomed')  # This works for TkAgg backend
+        self.mng.window.state('normal')
         self.gt_camera_position = camera_positions[2:-1]
         self.camera_position_bm = camera_position_bm
 
