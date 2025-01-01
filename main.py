@@ -200,6 +200,9 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         
         image = load_image(args.ds, i, args)
 
+
+        print(f"-5. keypoints.shape: {keypoints.shape}")
+
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
         
         RMS, is_benchmark = benchmarker.process(history.camera_position, i)

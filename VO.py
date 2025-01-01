@@ -9,6 +9,10 @@ from bootstrapping_utils.exercise_3.select_keypoints import selectKeypoints
 from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
 from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
 
+
+np.random.seed(1)
+
+
 class VisualOdometry:
 
     def __init__(self, args):
@@ -935,18 +939,31 @@ class VisualOdometry:
             print("Number of new Landmarks after removing the negatives: is zero")
         ### Spatial Non Maximum Suppression between within new and old Landmarks ###
         triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
+        if len(triangulated_landmarks) > 0:
+            print(f"00. Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
+        else:
+            print(f"00. Number of the triangulated_landmarks after NMS: is zero")
 
-        ### Statistical Filtering of new Landmarks ###
-        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
+        # ### Statistical Filtering of new Landmarks ###
+        # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
+
+        if len(triangulated_landmarks) > 0:
+            print(f"01. Number of the triangulated_landmarks after statistical_filtering: {triangulated_landmarks.shape[1]}")
+        else:
+            print(f"01. Number of the triangulated_landmarks after statistical_filtering: is zero")
         
         if triangulated_landmarks.size == 0:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
         # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        if triangulated_landmarks.shape[1] > 0.1 * landmarks_1.shape[1]:
+        print(f"2. Number of the triangulated_landmarks after reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
+        print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
+
+        num_points_to_keep = 50
+        if triangulated_landmarks.shape[1] > num_points_to_keep:
             print("Too many new landmarks, reducing number")
-            num_points_to_keep = int(0.1 * landmarks_1.shape[1])
+            # num_points_to_keep = int(100)
             indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
             triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
             triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
@@ -955,6 +972,9 @@ class VisualOdometry:
             Hidden_state[-1][0] = triangulated_keypoints
             Hidden_state[-1][3] = triangulated_keypoints
             Hidden_state[-1][6] = triangulated_descriptors
+
+        print(f"3. Number of the triangulated_landmarks after reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
+        print(f"3. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
 
 
 
@@ -985,7 +1005,8 @@ class VisualOdometry:
         if not self.use_sift:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
-            self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
         #self.num_keypoints = max(1,-landmarks_1.shape[1] + 500)
@@ -1115,8 +1136,9 @@ class VisualOdometry:
         self.prev_image = prev_image
         
         ###Track keypoints from last frame to this frame using KLT###
-        
+        print(f"-4. keypoints_0.shape: {keypoints_0.shape}")
         keypoints_1, st = self.track_keypoints(prev_image, image, keypoints_0)
+        print(f"-3. keypoints_1.shape: {keypoints_1.shape}")
         st = st.reshape(-1)
         #remove keypoints that are not tracked
         landmarks_1 = landmarks_0[:, st == 1]
@@ -1127,7 +1149,9 @@ class VisualOdometry:
         # Use inliers to filter out outliers from keypoints and landmarks
         inliers = inliers.flatten()
         keypoints_1 = keypoints_1[:, inliers]
+        print(f"-2. landmarks_1.shape: {landmarks_1.shape}")
         landmarks_1 = landmarks_1[:, inliers]
+        print(f"-1. landmarks_1.shape: {landmarks_1.shape}")
         descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
 
