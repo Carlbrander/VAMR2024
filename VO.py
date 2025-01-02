@@ -69,9 +69,7 @@ class VisualOdometry:
             sift = cv2.SIFT_create()
             keypoints, descriptors = sift.detectAndCompute(gray, None)
 
-            # Sort keypoints based on their response (strength)
-            #keypoints = sorted(keypoints, key=lambda x: -x.response)
-
+           
             # Select N keypoints randomly
             if len(keypoints) > num_keypoints:
                 keypoints = list(keypoints)  # Convert to list if it's a tuple
@@ -92,19 +90,6 @@ class VisualOdometry:
 
             #switcch x and y coordinates of the keypoints
             keypoints = keypoints[[1, 0], :]
-
-
-            ### Visualization of newly detected keypoints ###
-
-            #use matplotlib to plot the keypoints on the image
-            # plt.figure()
-            # plt.imshow(gray, cmap='gray')
-            # plt.scatter(keypoints[1], keypoints[0], c='r', s=5)
-            # plt.savefig(f'output_{self.current_image_counter}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-            # plt.close()
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
 
         return keypoints, descriptors
 
@@ -202,12 +187,6 @@ class VisualOdometry:
                     confidence=0.999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-
-        #R_1 = np.eye(4)
-        #R_1[:3, :3] = rotation_matrix
-        #
-        #t_1 = np.zeros((4, 1))
-        #t_1[:3, 0] = translation_vector.flatten()
 
         #non homogenoius transformation
         R_1 = rotation_matrix
@@ -365,10 +344,10 @@ class VisualOdometry:
             )
 
             #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
-            #for i in candidate[3].T:
-            #    for j in newest_Hidden_state[3].T:
-            #        if np.linalg.norm(i - j) < 20:
-            #            indices_to_keep[np.where(np.all(newest_Hidden_state[3].T == j, axis=1))] = False
+            for i in candidate[3].T:
+                for j in newest_Hidden_state[3].T:
+                    if np.linalg.norm(i - j) < self.nonmaximum_suppression_radius:
+                        indices_to_keep[np.where(np.all(newest_Hidden_state[3].T == j, axis=1))] = False
 
 
 
@@ -381,14 +360,6 @@ class VisualOdometry:
 
             # Update the mask to False for matched indices
             indices_to_keep[matched_indices] = False
-
-
-            # Do NMS on the new matched keypoints compared to the tracked existing ones to not introduce duplicates close by
-            #for i in candidate[3].T:
-            #    for j in newest_Hidden_state[3].T:
-            #        if np.linalg.norm(i - j) < self.nonmaximum_suppression_radius:
-            #            indices_to_keep[np.where(np.all(newest_Hidden_state[3].T == j, axis=1))] = False
-
             
         
         # Apply the mask once after the loop
@@ -406,17 +377,6 @@ class VisualOdometry:
         new_keypoints = []
         new_descriptors = []
         new_landmarks = []
-
-        # print("======================]")
-        # # print(Hidden_state[-1][0].shape)
-        # print(Hidden_state[-1][3].shape)
-
-        # if Hidden_state[-1][3].shape != (0,):
-        #     plt.figure()
-        #     plt.imshow(self.image, cmap='gray')
-        #     plt.scatter(Hidden_state[-1][3][0], Hidden_state[-1][3][1], c='r', s=5)
-        #     plt.savefig(f'output_{self.current_image_counter}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-        #     plt.close()
         
         if Hidden_state:
             for candidate_i, candidate in enumerate(Hidden_state[-2:-1]):
@@ -440,18 +400,6 @@ class VisualOdometry:
                     # Calculate bearing angle between the landmark and both camera views
                     angle = self.calculate_angle(landmark, candidate[2], candidate[5])
                     angles.append(angle)
-
-                # print("======================]")
-                # print(candidate_i)
-                # # print(Hidden_state[-1][0].shape)
-                # print(candidate[3].shape)
-
-                # if candidate[3].shape != (0,):
-                #     plt.figure()
-                #     plt.imshow(self.image, cmap='gray')
-                #     plt.scatter(candidate[3][0], candidate[3][1], c='r', s=5)
-                #     plt.savefig(f'output_{self.current_image_counter}+{candidate_i}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-                #     plt.close()
 
                 # If angle > threshold, add to lists
                 for idx, angle in enumerate(angles):
@@ -484,35 +432,6 @@ class VisualOdometry:
     
     def NMS_on_keypoints(self, new_keypoints, old_keypoints, radius):
 
-
-        #DOES NOT WORK YET 
-
-
-        #This function does NMS of the new_keypoints on the old_keypoints and the new keypoints
-        #if a new_keypoint is within a certain radius of an old_keypoint or within the radius to another new_keypoint, it is added to the removal_index
-
-        #removal_index = []
-        #continue_bool = False
-
-        #for i in range(new_keypoints.shape[1]):
-        #    for j in range(old_keypoints.shape[1]):
-        #        if np.linalg.norm(new_keypoints[:, i] - old_keypoints[:, j]) < radius:
-        #            removal_index.append(i)
-        #            continue_bool = True
-        #            break
-        #    for j in range(new_keypoints.shape[1]):
-        #        if i != j:
-        #            if np.linalg.norm(new_keypoints[:,i] - new_keypoints[:,j]) < radius:
-        #                if continue_bool == False
-        #                    removal_index.append(i)
-        #                    break
-        #                else:
-
-
-        #     
-
-        #return removal_index
-    
 
         removal_index = set()
 
@@ -879,18 +798,6 @@ class VisualOdometry:
         else:
             gray = self.image
 
-        # plt.figure()
-        # plt.imshow(gray, cmap='gray')
-        # plt.scatter(new_keypoints[0], new_keypoints[1], c='r', s=5)
-        # plt.savefig(f'output_{self.current_image_counter}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-        # plt.close()
-
-
-
-
-
-
-
         print("Number of Keypoints allowed to detect:", self.num_keypoints)
         print("Number of freshly Detected Keypoints:", new_keypoints.shape[1])
 
@@ -964,46 +871,12 @@ class VisualOdometry:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, None, None, None
         
       
-
-     
-        # print("======================]")
-        # print(Hidden_state[-1][0].shape)
-        # # print(triangulated_keypoints.shape)
-        # if Hidden_state[-1][0].shape != (0,):
-        #     plt.figure()
-        #     plt.imshow(gray, cmap='gray')
-        #     plt.scatter(Hidden_state[-1][0][0], Hidden_state[-1][0][1], c='r', s=5)
-        #     plt.savefig(f'output_{self.current_image_counter}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-        #     plt.close()
-
-
-
-
-
-
         ### Triangulate new Landmarks ###
         triangulated_keypoints, triangulated_landmarks, triangulated_descriptors = self.triangulate_new_landmarks(Hidden_state)
         if len(triangulated_landmarks) > 0:
             print("Number of new landmarks after triangulation that pass the Angle threshold: ", triangulated_landmarks.shape[1])
         else: 
             print("Number of new landmarks after triangulation that pass the Angle threshold: is zero")
-
-
-
-
-        # print("======================]")
-        # # print(Hidden_state[-1][0].shape)
-        # print(triangulated_keypoints.shape)
-
-        # if triangulated_keypoints.shape != (0,):
-        #     plt.figure()
-        #     plt.imshow(gray, cmap='gray')
-        #     plt.scatter(triangulated_keypoints[0], triangulated_keypoints[1], c='r', s=5)
-        #     plt.savefig(f'output_{self.current_image_counter}.png', bbox_inches='tight', pad_inches=0, dpi=300)
-        #     plt.close()
-
-
-
 
 
         ### Remove Negative Points from Landmarks we want to add next###
@@ -1148,55 +1021,10 @@ class VisualOdometry:
         landmarks_negative = 2 * camera_position - landmarks_negative
 
 
-
-
-        ### Visualize the positive and negative points ###
-
-
-
-
-    #   #plot with matplotlib the location of the camera, the postive and negative points
-    #   fig1 = plt.figure()
-    #   ax1 = fig1.add_subplot(111, projection='3d')
-    #   ax1.set_xlabel('X')
-    #   ax1.set_ylabel('Y')
-    #   ax1.set_zlabel('Z')
-
-    #   #set axis lim
-    #   ax1.set_xlim(-25, 25)
-    #   ax1.set_ylim(-25, 25)
-    #   ax1.set_zlim(0, 50)
-
-    #   #plot positive landmarks in blue
-    #   ax1.scatter(landmarks_positive[0, :], landmarks_positive[1, :], landmarks_positive[2, :], c='b', marker='o')
-    #   
-    #   #plot negative landmarks in red
-    #   ax1.scatter(landmarks_negative[0, :], landmarks_negative[1, :], landmarks_negative[2, :], c='r', marker='o')
-
-    #   #plot camera position in red
-    #   ax1.scatter(camera_position[0], camera_position[1], camera_position[2], c='r', marker='x', s=100)
-
-    #   #plot the forward vector in green
-    #   ax1.quiver(camera_position[0], camera_position[1], camera_position[2], forward_vector[0], forward_vector[1], forward_vector[2], color='g', length=5)
-
-    #   #plot the direction vectors in blue
-    #   for i in range(len(direction_vector.T)):
-    #      
-    #       ax1.quiver(camera_position[0], camera_position[1], camera_position[2], direction_vector[0, i], direction_vector[1,i], direction_vector[2,i], color='b', length=5)
-
-    #    plt.show()
-    #    cv2.waitKey(0)
-    #    cv2.destroyAllWindows()
-
-
-
-
         landmarks_positive = np.hstack((landmarks_positive, landmarks_negative))
         keypoints_positive = np.hstack((keypoints_positive, keypoints_negative))
         descriptors_positive = np.hstack((descriptors_positive, descriptors_negative))
 
-
-        
 
         return landmarks_positive, keypoints_positive, descriptors_positive
 
