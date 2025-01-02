@@ -30,7 +30,7 @@ def parse_arguments():
     args.max_depth = 100
 
 
-    args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
+    args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
     args.min_baseline = 0.5 # only for the start anyway, adapted dynamically
 
     return args
@@ -38,7 +38,7 @@ def parse_arguments():
 def read_poses_kitti(file_path):
     poses = []
     with open(file_path, 'r') as file:
-        for line in file:
+        for i, line in enumerate(file):
             values = list(map(float, line.split()))
             R = np.array(values[:9]).reshape(3, 3)
             t = np.array([values[3], values[-1]]).reshape(2, 1)
@@ -195,14 +195,21 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
   
     # Continuous operation
     for i in range(args.bootstrap_frames[1] + 1, args.last_frame + 1):
+        # if i < 120:
+        #     continue
 
         print(f'\n\nProcessing frame {i}\n=====================')
         
         image = load_image(args.ds, i, args)
 
+
+        print(f"-5. keypoints.shape: {keypoints.shape}")
+
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
         
-        RMS, is_benchmark = benchmarker.process(history.camera_position, i)
+        # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
+        RMS = 0
+        is_benchmark = True
         plotter.visualize_dashboard(history, image, RMS, is_benchmark)
         
         #update previous image

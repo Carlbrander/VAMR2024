@@ -194,6 +194,8 @@ class Plotter:
         for keypoints_from_history in keypoints_history[-1].T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
+        print(f"10. in plot: keypoints_history[-1].T.shape: {keypoints_history[-1].T.shape}")
+
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
