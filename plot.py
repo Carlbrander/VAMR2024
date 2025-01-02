@@ -2,14 +2,19 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 import cv2
 import numpy as np
-import platform
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm):
+        plt.ion()  # Enable interactive mode
         self.fig = plt.figure(figsize=(15, 10))
         self.mng = plt.get_current_fig_manager()
-        if platform.system() != 'Linux':
-            self.mng.window.state('normal')
+        
+        # Maximize the figure window
+        try:
+            self.mng.window.showMaximized()
+        except AttributeError:
+            print("Maximizing window not supported on this backend")
+
         self.gt_camera_position = camera_positions[2:-1]
         self.camera_position_bm = camera_position_bm
 
@@ -34,11 +39,11 @@ class Plotter:
         
         # Draw the pause button
         pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
-        self.pause_button = Button(pause_button_ax, 'Pause/Resume')
+        self.pause_button = Button(pause_button_ax, 'Pause')
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)  # Use a shorter pause to force the plot to refresh
 
         # Pause loop
         while self.paused[0]:
@@ -196,8 +201,6 @@ class Plotter:
         for keypoints_from_history in keypoints_history[-1].T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
-        print(f"10. in plot: keypoints_history[-1].T.shape: {keypoints_history[-1].T.shape}")
-
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
@@ -258,3 +261,8 @@ class Plotter:
     
     def toggle_pause(self, event):
         self.paused[0] = not self.paused[0]
+        if self.paused[0]:
+            self.pause_button.label.set_text('Resume')
+        else:
+            self.pause_button.label.set_text('Pause')
+        plt.draw()

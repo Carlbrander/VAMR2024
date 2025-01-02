@@ -147,20 +147,11 @@ class VisualOdometry:
             for m in good:
                 matches_array[m.trainIdx] = m.queryIdx
 
-
             matches = matches_array
-
 
             # Get matched keypoints
             matched_keypoints_0 = np.array([keypoints_0[match.queryIdx] for match in good])
             matched_keypoints_1 = np.array([keypoints_1[match.trainIdx] for match in good])
-
-           
-
-
-
-
-        
 
         return matched_keypoints_1.T, matched_keypoints_0.T, matches
             
@@ -273,58 +264,52 @@ class VisualOdometry:
         return keypoints_1, st
 
     def track_and_update_hidden_state(self, Hidden_state, R_1, t_1):
+        # Track last frame keypoints in the current frame and limit the list history to the last 10 frames
+        # Hidden_state[0] -> hidden states of the last frame
+        # Hidden_state[1] -> hidden states of the second last frame
+        # ...
+        # original keypoints, original R, original t, current keypoint, descriptors
+        #   2xN             , 3x3xN     , 3x1xN     , 2xN             , 2xN        
 
         
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-2:-1]:
-                if len(candidate) == 0:
-                    new_Hidden_state.append(candidate)
-                    continue
-               
+            hidden_feature_original = Hidden_state[-1][0]
+            R_original = Hidden_state[-1][1]
+            t_original = Hidden_state[-1][2]
+            hidden_features_last_frame = Hidden_state[-1][3]
+            descriptor_last_frame = Hidden_state[-1][4]
 
-                candidate_keypoints, st  = self.track_keypoints(self.prev_image, self.image, candidate[3])
-                
-                    
-               
+            hidden_features_new_frame, st = self.track_keypoints(self.prev_image, self.image, hidden_features_last_frame)
+            st = st.reshape(-1)
 
-                st = st.reshape(-1)
+            new_Hidden_state = Hidden_state 
+            # Add the non-tracked features to the Hidden_state[-1]
+            new_Hidden_state[-1][0] = Hidden_state[-1][0][:, st == 0]
+            new_Hidden_state[-1][1] = Hidden_state[-1][1][:, st == 0]
+            new_Hidden_state[-1][2] = Hidden_state[-1][2][:, st == 0]
+            new_Hidden_state[-1][3] = Hidden_state[-1][3][:, st == 0]
+            new_Hidden_state[-1][4] = Hidden_state[-1][4][:, st == 0]
 
-                # Convert candidates to a list to allow modification
-                candidate = list(candidate)
-
-                #candidate_keypoints = candidate_keypoints[:, st == 1]
-                assert candidate_keypoints.shape[1] <= candidate[3].shape[1]
-
-                #remove keypoints that are not tracked and update the current keypoints with the updated tracked keypoints
-                candidate[3] = candidate_keypoints
-
-                #remove the keypoints in their initial oberservation if they are not tracked anymore
-                candidate[0] = candidate[0][:, st == 1]
-                assert candidate[0].shape[1] == candidate[3].shape[1]
-
-                #remove the descriptors in their initial obersrvation if they are not tracked anymore
-                candidate[6] = candidate[6][:, st == 1]
-                assert candidate[6].shape[1] == candidate[3].shape[1]
-             
-                candidate[4] = R_1
-
-                candidate[5] = t_1.reshape(3, 1)
+            # Only use the tracked features to append to the new Hidden_state
+            oK = hidden_feature_original[:, st == 1]
+            oR = R_original[:, st == 1]
+            oT = t_original[:, st == 1]
+            cK = hidden_features_new_frame[:, st == 1]
+            descriptor = descriptor_last_frame[:, st == 1]
 
 
-                candidate = [np.array(candidate[0]), np.array(candidate[1]), np.array(candidate[2]), np.array(candidate[3]), np.array(candidate[4]), np.array(candidate[5]), np.array(candidate[6]), candidate[7]]
+            # Append the updated Hidden_state to the new Hidden_state
+            new_Hidden_state.append([oK, oR, oT, cK, descriptor])
 
-                new_Hidden_state.append(candidate)
-
+            # Limit the history to the last 10 frames
+            if len(new_Hidden_state) > 10:
+                new_Hidden_state.pop(0)
         
-        new_Hidden_state.append(Hidden_state[-1])
-
-      
-
-                
-
         return new_Hidden_state
+
+            
 
     def remove_duplicate_keypoints(self, Hidden_state):
 
@@ -791,8 +776,6 @@ class VisualOdometry:
 
 
 
-
-
         if len(self.image.shape) > 2:
             gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         else:
@@ -810,15 +793,9 @@ class VisualOdometry:
         new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
         new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
 
-        print("Number of new keypoints after NMS added to latest Hidden State:", new_keypoints.shape[1])
+        print("Number of new keypoints after NMS with keypoints:", new_keypoints.shape[1])
 
 
-        # Add new keypoints & descriptors to the Hidden_state
-        # TODO: why are new keypoints, rotation and translation doubled?
-        # TODO: Why do appear rotation and translation at all? also counts as landmakrs because len>0
-        Hidden_state.append([new_keypoints, R_1, t_1.reshape(3,1), new_keypoints, R_1, t_1.reshape(3,1), new_descriptors, self.current_image_counter]) 
-        
-        
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
         for candidate in Hidden_state:
@@ -827,9 +804,8 @@ class VisualOdometry:
             sum_hidden_state_landmarks += candidate[0].shape[1]
         print("Number of Keypoints in Hidden State before Tracking:", sum_hidden_state_landmarks)
 
-        ### Track and Update all Hidden States ###
+        # Track the hidden state keypoints in the new frame
         Hidden_state = self.track_and_update_hidden_state(Hidden_state, R_1, t_1)
-
 
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
@@ -839,9 +815,73 @@ class VisualOdometry:
             sum_hidden_state_landmarks += candidate[0].shape[1]
         print("Number of Keypoints in Hidden State after Tracking:", sum_hidden_state_landmarks)
 
+
+
+        # Remove Duplicate Keypoints in newest Hidden state, NMS
+        if Hidden_state:
+            removal_index = self.NMS_on_keypoints(new_keypoints, Hidden_state[-1][3], radius=self.nonmaximum_suppression_radius)
+            new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
+            new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
+        print("Number of new keypoints after NMS with Hidden State:", new_keypoints.shape[1])
+
+        # Feature Matching of new keypoints with older Hidden States (last 10 frames)
+        for candidate in Hidden_state[:-1]:
+            if len(candidate) == 0:
+                continue
+            _, _, matches = self.match_features(new_descriptors, candidate[4], new_keypoints, candidate[3])
+            # Get indices of matched keypoints
+            matched_indices = np.where(matches != -1)[0]
+
+            # Assuming R_1 and t_1 are the rotation matrix and translation vector for the current frame
+            # and matched_indices contains the indices of the matched keypoints
+
+            # Create 3x3xN and 3x1xN matrices for the matched keypoints
+            R_matrices = np.repeat(R_1[:, :, np.newaxis], len(matched_indices), axis=2)
+            t_vectors = np.repeat(t_1[:, :, np.newaxis], len(matched_indices), axis=2)
+
+            # Update the Hidden_state with the new keypoints, rotation matrices, and translation vectors
+            Hidden_state[-1][0] = np.hstack((Hidden_state[-1][0], new_keypoints[:, matched_indices]))
+            Hidden_state[-1][1] = np.hstack((Hidden_state[-1][1], R_matrices))
+            Hidden_state[-1][2] = np.hstack((Hidden_state[-1][2], t_vectors))
+            Hidden_state[-1][3] = np.hstack((Hidden_state[-1][3], new_keypoints[:, matched_indices]))
+            Hidden_state[-1][4] = np.hstack((Hidden_state[-1][4], new_descriptors[:, matched_indices]))
+
+            # Remove matched keypoints from new keypoints
+            new_keypoints = np.delete(new_keypoints, matched_indices, axis=1)
+            new_descriptors = np.delete(new_descriptors, matched_indices, axis=1)
+
+        print("Number of new keypoints after matching with Hidden State:", new_keypoints.shape[1])
+
+        # Rest of the new keypoints that are not matched with the Hidden State, add them to the Hidden State[-1]
+        # Check if Hidden_state is empty
+        if not Hidden_state:
+            # Initialize Hidden_state with the new keypoints, R, t, and descriptors
+            R_matrices = np.repeat(R_1[:, :, np.newaxis], new_keypoints.shape[1], axis=2)
+            t_vectors = np.repeat(t_1[:, :, np.newaxis], new_keypoints.shape[1], axis=2)
+            Hidden_state.append([new_keypoints, R_matrices, t_vectors, new_keypoints, new_descriptors])
+        else:
+            # Ensure R and t are 3x3xN and 3x1xN matrices
+            R_matrices = np.repeat(R_1[:, :, np.newaxis], new_keypoints.shape[1], axis=2)
+            t_vectors = np.repeat(t_1[:, :, np.newaxis], new_keypoints.shape[1], axis=2)
+
+            # Add the new keypoints, R, t, and descriptors to the latest frame in Hidden_state
+            Hidden_state[-1][0] = np.hstack((Hidden_state[-1][0], new_keypoints))
+            Hidden_state[-1][1] = np.hstack((Hidden_state[-1][1], R_matrices))
+            Hidden_state[-1][2] = np.hstack((Hidden_state[-1][2], t_vectors))
+            Hidden_state[-1][3] = np.hstack((Hidden_state[-1][3], new_keypoints))
+            Hidden_state[-1][4] = np.hstack((Hidden_state[-1][4], new_descriptors))
+
+
+        "-----------------------------------------------------------------------------------------------------------------"
+        ############ old code ################
+        "-----------------------------------------------------------------------------------------------------------------"
+        # Add new keypoints & descriptors to the Hidden_state
+        # TODO: why are new keypoints, rotation and translation doubled?
+        # TODO: Why do appear rotation and translation at all? also counts as landmakrs because len>0
+        # Hidden_state.append([new_keypoints, R_1, t_1.reshape(3,1), new_keypoints, R_1, t_1.reshape(3,1), new_descriptors, self.current_image_counter]) 
         
-        ### Remove Duplicate Keypoints in newest Hidden state ###
-        Hidden_state = self.remove_duplicate_keypoints(Hidden_state)
+        # ### Remove Duplicate Keypoints in newest Hidden state ###
+        # Hidden_state = self.remove_duplicate_keypoints(Hidden_state)
 
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
@@ -851,24 +891,24 @@ class VisualOdometry:
             sum_hidden_state_landmarks += candidate[0].shape[1]
         print("Number of Keypoints in Hidden State after removing duplicates:", sum_hidden_state_landmarks)
         
-        #Remove hidden state that are empty lists
-        Hidden_state = [candidate for candidate in Hidden_state if len(candidate) > 0]
-        # Safely remove Hidden States that have less than 4 keypoints using list comprehension
-        Hidden_state = [candidate for candidate in Hidden_state if candidate[3].shape[1] >= 4]
+        # #Remove hidden state that are empty lists
+        # Hidden_state = [candidate for candidate in Hidden_state if len(candidate) > 0]
+        # # Safely remove Hidden States that have less than 4 keypoints using list comprehension
+        # Hidden_state = [candidate for candidate in Hidden_state if candidate[3].shape[1] >= 4]
 
-        #print cummulative number of keypoints in hidden state
-        sum_hidden_state_landmarks = 0
-        for candidate in Hidden_state:
-            sum_hidden_state_landmarks += candidate[0].shape[1]
-        print("Number of Keypoints in Hidden State bafter removing too small candidates:", sum_hidden_state_landmarks)
+        # #print cummulative number of keypoints in hidden state
+        # sum_hidden_state_landmarks = 0
+        # for candidate in Hidden_state:
+        #     sum_hidden_state_landmarks += candidate[0].shape[1]
+        # print("Number of Keypoints in Hidden State bafter removing too small candidates:", sum_hidden_state_landmarks)
                 
         
-        # Check if current Hidden State has less than 4 keypoints
-        if Hidden_state and Hidden_state[-1][0].shape[1] < 4:
-            print("Not enough keypoints to triangulate, removing newest Hidden State")
-            Hidden_state.pop()
-            print(f"1.1 keypoints_1.shape: {keypoints_1.shape}")
-            return keypoints_1, landmarks_1, descriptors_1, Hidden_state, None, None, None
+        # # Check if current Hidden State has less than 4 keypoints
+        # if Hidden_state and Hidden_state[-1][0].shape[1] < 4:
+        #     print("Not enough keypoints to triangulate, removing newest Hidden State")
+        #     Hidden_state.pop()
+        #     print(f"1.1 keypoints_1.shape: {keypoints_1.shape}")
+        #     return keypoints_1, landmarks_1, descriptors_1, Hidden_state, None, None, None
         
       
         ### Triangulate new Landmarks ###
@@ -954,7 +994,7 @@ class VisualOdometry:
         sum_hidden_state_landmarks = sum(landmarks_count)
 
         if not self.use_sift:
-            self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
+            self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
             self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
             print(f"-6. self.num_keypoints: {self.num_keypoints}")
