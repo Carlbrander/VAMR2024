@@ -455,10 +455,10 @@ class VisualOdometry:
 
                 # If angle > threshold, add to lists
                 for idx, angle in enumerate(angles):
-                    # if angle >= self.threshold_angle:
-                    new_keypoints.append(candidate[3][:, idx])
-                    new_descriptors.append(candidate[6][:, idx])
-                    new_landmarks.append(landmarks[:, idx])
+                    if angle >= self.threshold_angle:
+                        new_keypoints.append(candidate[3][:, idx])
+                        new_descriptors.append(candidate[6][:, idx])
+                        new_landmarks.append(landmarks[:, idx])
 
         # Convert lists to numpy arrays
         new_keypoints = np.array(new_keypoints).T
@@ -1097,7 +1097,8 @@ class VisualOdometry:
         if not self.use_sift:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
-            self.threshold_angle = round(max(0.05, landmarks_1.shape[1] / 9000), 2)
+            self.threshold_angle = round(max(0.001, landmarks_1.shape[1] / 18000), 2)
+            print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
