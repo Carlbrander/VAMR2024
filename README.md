@@ -13,6 +13,9 @@ It is based on the minimal set of possible libraries needed to get everything wo
 #### _Option 2. The python (pyenv) way:_
 - Using Python 3.9.19, install requirements with `pip install -r requirements.txt`
 
+#### _Option 3. The python (pyenv) way:_
+- Using requirements.txt from old exercises
+
 #### Donwload data:
 To use the VO pipeline, download all three datasets from the website and include them in the `data` folder inside this repository "VAMR2024" folder, i.e. unpack the .zip archives into the `VAMR2024/data/...`
 
