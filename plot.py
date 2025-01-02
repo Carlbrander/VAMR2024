@@ -6,13 +6,15 @@ import platform
 import textwrap
 
 class Plotter:
-    def __init__(self, camera_positions, camera_position_bm):
+    def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
         self.fig = plt.figure(figsize=(18, 10))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
         self.gt_camera_position = camera_positions[2:-1]
         self.camera_position_bm = camera_position_bm
+        self.bootstrap_frames = bootstrap_frames
+        self.i = 0
 
         # Pause logic
         self.paused = [False]
@@ -20,6 +22,7 @@ class Plotter:
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
         # Clear the figure to update it
         self.fig.clf()
+        self.i = current_iteration
 
         # Plot Dashboard
         self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
@@ -58,8 +61,8 @@ class Plotter:
         
         # Plot ground truth trajectory if available
         if len(self.gt_camera_position) > 0:
-            gt_x = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
-            gt_z = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
+            gt_x = [point[0] for point in self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1]]
+            gt_z = [point[1] for point in self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1]]
             bm_x = [point[0] for point in self.camera_position_bm[:len(history.camera_position)]]
             bm_z = [point[1] for point in self.camera_position_bm[:len(history.camera_position)]]
             ax_3d.plot(gt_x, gt_z, 'b', marker='*', markersize=3, label='Scaled GT')

@@ -42,9 +42,10 @@ def read_poses_kitti(file_path):
     with open(file_path, 'r') as file:
         for i, line in enumerate(file):
             values = list(map(float, line.split()))
-            R = np.array(values[:9]).reshape(3, 3)
-            t = np.array([values[3], values[-1]]).reshape(2, 1)
-            poses.append((t))
+            matrix_3x4 = np.array(values).reshape(3, 4)
+            R = matrix_3x4[:, :3]
+            t = matrix_3x4[:, 3]
+            poses.append((R, t))
     return poses
 
 def compute_camera_positions(poses):
@@ -63,7 +64,7 @@ def plot_camera_trajectory(camera_positions, title="Camera Trajectory"):
     #     ax.plot(camera_positions[i:i+2][0], camera_positions[i:i+2][1], color=colors[i])
     
     camera_x_gt = [point[0] for point in camera_positions]
-    camera_z_gt = [point[1] for point in camera_positions]
+    camera_z_gt = [point[2] for point in camera_positions]
     ax.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
     ax.legend()
 
@@ -125,7 +126,8 @@ def dataset_setup(args):
 
     # need to set bootstrap_frames
     if ds == 0:
-        bootstrap_frames = [0, 2]
+        start = 0
+        bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
@@ -145,11 +147,12 @@ def dataset_setup(args):
     args.K = K
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
-    args.gt_Rt = poses
-    args.gt_camera_position = poses
+    args.gt_R = np.array([pose[0] for pose in poses])
+    args.gt_t = np.array([pose[1] for pose in poses])
+    
     args.img0 = img0
     args.img1 = img1
-    plot_camera_trajectory(args.gt_camera_position)
+    plot_camera_trajectory(args.gt_t)
 
     return args
 
@@ -185,7 +188,7 @@ def load_image(ds, i,args):
     return image
 
 def getScale(gt_camera_position, t):
-    scale = -gt_camera_position[1]/t[2]
+    scale = np.linalg.norm(gt_camera_position) / np.linalg.norm(t)
     return scale
 
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
@@ -193,7 +196,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
     prev_img = args.img1
     vo = VisualOdometry(args)
     benchmarker = Benchmarker(args.gt_camera_position, args.ds)
-    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm)
+    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames)
 
     Hidden_state = []
   
@@ -234,10 +237,16 @@ if __name__ == "__main__":
 
     #Bootstrapping
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
+    scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
+    args.gt_camera_position = []
+    offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
+    for i in range(len(args.gt_t)):
+        # t_new = -R @ t
+        args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
+        args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
 
-    # get scale
-    scale = getScale(args.gt_camera_position[args.bootstrap_frames[1]], t)
-    args.gt_camera_position = args.gt_camera_position*scale
+    args.gt_camera_position = args.gt_camera_position/scale
+
 
     #Initialize History
     history = History(keypoints, landmarks, R, t)
