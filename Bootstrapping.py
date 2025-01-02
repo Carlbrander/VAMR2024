@@ -127,6 +127,9 @@ def bootstrapping(args):
 
 
     #Estimate the essential matrix E using the 8-point algorithm with strict threshold of 1 pixel and 99.9% confidence
+    # Set the random seed for reproducibility
+    np.random.seed(42)
+    
     E, _ = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.999, 1.0)
 
     # Recover the pose of the second camera

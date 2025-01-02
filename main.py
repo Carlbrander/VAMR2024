@@ -228,6 +228,8 @@ if __name__ == "__main__":
         shutil.rmtree(folder_path)
     os.makedirs(folder_path, exist_ok=True)
 
+    np.random.seed(42)
+
 
     #Parse Arguments
     args = parse_arguments()
