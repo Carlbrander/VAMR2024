@@ -3,10 +3,11 @@ from matplotlib.widgets import Button
 import cv2
 import numpy as np
 import platform
+import textwrap
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm):
-        self.fig = plt.figure(figsize=(15, 10))
+        self.fig = plt.figure(figsize=(18, 10))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -16,7 +17,7 @@ class Plotter:
         # Pause logic
         self.paused = [False]
 
-    def visualize_dashboard(self, history, img, RMS, is_benchmark):
+    def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
         # Clear the figure to update it
         self.fig.clf()
 
@@ -25,6 +26,7 @@ class Plotter:
         self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
+        self.plot_text(img, history, current_iteration)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -39,6 +41,7 @@ class Plotter:
 
         self.fig.canvas.draw()
         plt.pause(0.01)
+        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop
         while self.paused[0]:
@@ -46,7 +49,7 @@ class Plotter:
 
     def plot_3d(self,history_landmarks, history, triangulated_landmarks):
 
-        ax_3d = self.fig.add_subplot(221)
+        ax_3d = self.fig.add_subplot(231)
         
         # Plot estimated trajectory
         est_trans_x = [point[0] for point in history.camera_position]
@@ -116,7 +119,7 @@ class Plotter:
        
     def plot_top_view(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
         #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
-        ax_3d_1 = ax.add_subplot(222)
+        ax_3d_1 = ax.add_subplot(232)
         ax_3d_1.set_xlabel('X')
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
@@ -181,7 +184,7 @@ class Plotter:
         keypoints_history = history.keypoints
 
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(223)
+        ax_2d = self.fig.add_subplot(234)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -196,8 +199,6 @@ class Plotter:
         for keypoints_from_history in keypoints_history[-1].T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
-        print(f"10. in plot: keypoints_history[-1].T.shape: {keypoints_history[-1].T.shape}")
-
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
@@ -216,7 +217,7 @@ class Plotter:
         # 2) number of newly triangulated landmarks in each step
         # 3) sum of landmarks in the hidden state
 
-        ax_4 = ax.add_subplot(224)
+        ax_4 = ax.add_subplot(235)
 
         #plot number of tracked landmarks in each step
         tracked_landmarks = [landmarks.shape[1] for landmarks in history_landmarks]
@@ -255,6 +256,35 @@ class Plotter:
 
         ax_4.set_title('Line Graph')
         ax_4.legend(loc='lower left')
+
+
+    def plot_text(self, img, history, current_iteration):
+        ax = self.fig.add_subplot(233)
+        # ax = self.fig.add_subplot(236)
+
+        # Adding multi-line text at a specified location
+        wrapped_texts = [wrap_text(text, width=90) for text in history.texts]
+        text_str = '\n'.join(wrapped_texts)
+
+        ax.text(-2, 9.5, text_str, fontsize=10, color='black', ha='left', va='top')
+        # ax.text(0.2, -9.5, text_str, fontsize=12, color='black', ha='left', va='top')
+
+        # Optional: Add labels and title
+        ax.set_xlim([0, 15])
+        ax.set_ylim([0, 10])
+        ax.axis('off')
+        ax.set_title('Plot with Multi-line Text')
+
+
+        # ax.imshow(image_rgb)
+        ax.set_title(f'Logs. Iteration={current_iteration}')
     
     def toggle_pause(self, event):
         self.paused[0] = not self.paused[0]
+
+
+
+def wrap_text(text, width, subsequent_indent='    '):
+    """Wrap text to fit within a specified width with indentation for subsequent lines."""
+    wrapper = textwrap.TextWrapper(width=width, subsequent_indent=subsequent_indent)
+    return '\n'.join(wrapper.wrap(text))

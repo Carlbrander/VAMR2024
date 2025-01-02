@@ -1,4 +1,6 @@
 import os
+import shutil
+
 import numpy as np
 import cv2
 from Bootstrapping import bootstrapping
@@ -167,6 +169,8 @@ class History:
         self.threshold_angles = []
         self.num_keypoints = []
 
+        self.texts = []
+
 def load_image(ds, i,args):
 
     if ds == 0:
@@ -195,6 +199,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
   
     # Continuous operation
     for i in range(args.bootstrap_frames[1] + 1, args.last_frame + 1):
+        history.texts = []
         # if i < 120:
         #     continue
 
@@ -202,21 +207,24 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         
         image = load_image(args.ds, i, args)
 
-
-        print(f"-5. keypoints.shape: {keypoints.shape}")
-
         keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
         
         # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
         RMS = 0
         is_benchmark = True
-        plotter.visualize_dashboard(history, image, RMS, is_benchmark)
+        plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
         
         #update previous image
         prev_img = image
 
 
 if __name__ == "__main__":
+    # Create or clean a folder for plots
+    folder_path = "output"
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)
+    os.makedirs(folder_path, exist_ok=True)
+
 
     #Parse Arguments
     args = parse_arguments()
