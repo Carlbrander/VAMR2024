@@ -350,7 +350,6 @@ class VisualOdometry:
                 newest_Hidden_state[6], candidate[6],
                 newest_Hidden_state[3], candidate[3], history
             )
-            print(f"np.count_nonzero(matches != -1): {np.count_nonzero(matches != -1)}")
 
             #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
             for i in candidate[3].T:
@@ -575,7 +574,7 @@ class VisualOdometry:
         bin_indices = np.digitize(angles, bin_edges)  # yields bin index in [1..num_bins]
 
         # 2d) Sub-sample each bin
-        max_per_bin = 5  # keep at most 10 points per bin
+        max_per_bin = 10  # keep at most 10 points per bin
         keep_mask = np.zeros(angles.shape[0], dtype=bool)  # track which points to keep
 
         for b in range(1, num_bins + 1):
@@ -1198,8 +1197,6 @@ class VisualOdometry:
             # Here we assume kp1[i] = [x_i, y_i], shape is (N,2).
             # cv2.KeyPoint expects (x, y, size).
             # Convert kp1, kp2 to lists of cv2.KeyPoint.
-            print("kp1.shape", kp1.shape)
-            print("kp2.shape", kp2.shape)
             if kp1.shape != (0,) and kp2.shape != (0,):
                 keypoints1 = [cv2.KeyPoint(x=float(kp1[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp1.shape[1])]
                 keypoints2 = [cv2.KeyPoint(x=float(kp2[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp2.shape[1])]
@@ -1233,8 +1230,8 @@ class VisualOdometry:
                 plt.savefig(f"output/debug_matches_{len(history.camera_position):06}.png")
                 plt.close()
 
-        if history.matches:
-            plot_matches(prev_image, image, history.matches[-1][0], history.matches[-1][1], history.matches[-1][2]) 
+        # if history.matches:
+        #     plot_matches(prev_image, image, history.matches[-1][0], history.matches[-1][1], history.matches[-1][2])
 
 
 

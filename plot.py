@@ -67,7 +67,7 @@ class Plotter:
             bm_x = [point[0] for point in self.camera_position_bm[:len(history.camera_position)]]
             bm_z = [point[1] for point in self.camera_position_bm[:len(history.camera_position)]]
             ax_3d.plot(gt_x, gt_z, 'b', marker='*', markersize=3, label='Scaled GT')
-            ax_3d.plot(bm_x, bm_z, 'y', marker='*', markersize=3, label='Benchmark')
+            # ax_3d.plot(bm_x, bm_z, 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Estimated trajectory')
         ax_3d.axis('equal')
