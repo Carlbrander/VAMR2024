@@ -1090,19 +1090,6 @@ class VisualOdometry:
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
         inliers = inliers.flatten()
-
-        total_points = landmarks_1.shape[1]
-        num_inliers = len(inliers)
-        THRESH_INLIER_RATIO = 0.3  # For example, require at least 10% inliers
-
-        if total_points > 0:
-            inlier_ratio = num_inliers / total_points
-        else:
-            # No points left; you can skip or do a forced reinit
-            print("No points to track. Skipping pose update.")
-            return (keypoints_0, landmarks_0, descriptors_0, R_0, t_0, Hidden_state, history)
-
-
         keypoints_1 = keypoints_1[:, inliers]
         landmarks_1 = landmarks_1[:, inliers]
         history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
