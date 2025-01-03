@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.optimize import least_squares
+from collections import defaultdict
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
 from bootstrapping_utils.exercise_3.harris import harris
@@ -257,6 +258,23 @@ class VisualOdometry:
         if len(image.shape) > 2:    
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+        blur_size = (5, 5)  # Adjust as necessary
+        sigma = 1.0
+
+        prev_gray_blurred = cv2.GaussianBlur(prev_image, blur_size, sigma)
+        gray_blurred      = cv2.GaussianBlur(image, blur_size, sigma)
+
+        # Then pass these blurred images into calcOpticalFlowPyrLK
+        keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
+            prev_gray_blurred,
+            gray_blurred,
+            keypoints_0.T.astype(np.float32),
+            None,
+            winSize=(21, 21),
+            maxLevel=4,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01)
+        )
+
         #use KLT to track existing keypoint in this new image
         keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
         prev_image,
@@ -264,7 +282,7 @@ class VisualOdometry:
         keypoints_0.T.astype(np.float32),
         None,
         winSize=(21, 21),
-        maxLevel=3,
+        maxLevel=4,
         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01))
         
         # Select good points
@@ -515,26 +533,23 @@ class VisualOdometry:
 
     def statistical_filtering(self, keypoints, landmarks, descriptors, R_1, t_1):
         """
-        A one-stop 'statistical_filtering' that combines:
-        1. Distance-based and outlier-based filtering (non-recursive).
-        2. Angular-based binning to ensure a more even horizontal distribution.
+        A combined distance-based, outlier-based, angular binning,
+        and radial binning approach.
         """
-
-        # -------------------------
-        # (1) Normal filtering by distance, etc.
-        # -------------------------
         if landmarks.size == 0:
             return landmarks, keypoints, descriptors
 
-        # Compute the camera position
+        # -----------------------------
+        # (1) Normal filtering by distance, etc. (UNCHANGED)
+        # -----------------------------
+
         camera_position = -R_1.T @ t_1
         camera_position = camera_position.flatten()
 
-        # 1a) Filter out extremely large outliers in the *landmarks distribution* itself
+        # 1a) Filter out outliers based on distribution of landmarks
         mean_landmark = np.mean(landmarks, axis=1)
         distances = np.linalg.norm(landmarks - mean_landmark.reshape(3,1), axis=0)
         mean_distance = np.mean(distances)
-        # Keep only points within 5x average spread
         idx_keep = (distances < 5 * mean_distance)
 
         # 1b) Filter by distance to camera
@@ -542,57 +557,66 @@ class VisualOdometry:
         mean_camdist = np.mean(distances_to_camera)
         std_camdist = np.std(distances_to_camera)
 
-        # Keep only those not too close or too far from average
-        # For instance: ±2σ from mean, also clamp absolute [0.5 ... 150] as in your code
-        lower_bound = np.maximum(0.5, mean_camdist - 2*std_camdist)
-        upper_bound = np.minimum(150.0, mean_camdist + 2*std_camdist)
+        # e.g. ±2σ around mean, clamp to [0.5, 150]
+        lower_bound = max(0.5, mean_camdist - 2 * std_camdist)
+        upper_bound = min(150.0, mean_camdist + 2 * std_camdist)
         in_range = (distances_to_camera > lower_bound) & (distances_to_camera < upper_bound)
 
         idx_keep = idx_keep & in_range
 
-        # Apply this first pass keep-mask
-        landmarks = landmarks[:, idx_keep]
-        keypoints = keypoints[:, idx_keep]
+        # Apply mask
+        landmarks   = landmarks[:, idx_keep]
+        keypoints   = keypoints[:, idx_keep]
         descriptors = descriptors[:, idx_keep]
 
         if landmarks.size == 0:
             return landmarks, keypoints, descriptors
 
-        # -------------------------
-        # (2) Angular Binning to Evenly Distribute Points
-        # -------------------------
-        # 2a) Transform the (already filtered) landmarks into camera coords
-        #     shape -> (3, N)
+        # -----------------------------
+        # (2) Angular + Radial Binning
+        # -----------------------------
+        # 2a) Transform into camera coords
         land_cam = R_1 @ (landmarks - camera_position.reshape(3,1))
+        X = land_cam[0,:]
+        Y = land_cam[1,:]
+        Z = land_cam[2,:]
 
-        # 2b) Compute horizontal angles alpha_i = atan2(X, Z)
-        angles = np.arctan2(land_cam[0,:], land_cam[2,:])  # shape (N,)
+        # 2b) Compute angle and radial distances in XZ plane
+        angles = np.arctan2(X, Z)
+        radii  = np.sqrt(X**2 + Z**2)
 
-        # 2c) Bin them
-        num_bins = 36   # e.g., 10° increments, 36 bins in [-π, π]
-        bin_edges = np.linspace(-np.pi, np.pi, num_bins + 1)
-        bin_indices = np.digitize(angles, bin_edges)  # yields bin index in [1..num_bins]
+        # 2c) Define bins
+        num_bins_angle = 36
+        bin_edges_angle = np.linspace(-np.pi, np.pi, num_bins_angle+1)
+        bin_indices_angle = np.digitize(angles, bin_edges_angle)  # [1..36]
 
-        # 2d) Sub-sample each bin
-        max_per_bin = 10  # keep at most 10 points per bin
-        keep_mask = np.zeros(angles.shape[0], dtype=bool)  # track which points to keep
+        num_bins_radii = 30
+        r_min, r_max = 0.5, 150.0
+        radii_clamped = np.clip(radii, r_min, r_max)
+        bin_edges_radii = np.linspace(r_min, r_max, num_bins_radii+1)
+        bin_indices_radii = np.digitize(radii_clamped, bin_edges_radii)  # [1..10]
 
-        for b in range(1, num_bins + 1):
-            idx_in_bin = np.where(bin_indices == b)[0]
-            count_bin = len(idx_in_bin)
-            if count_bin == 0:
-                continue
+        # 2d) Sub-sample each (angle_bin, radius_bin) pair
+        max_per_bin = 1
+        keep_mask = np.zeros(landmarks.shape[1], dtype=bool)
 
+        bins_dict = defaultdict(list)
+        for i in range(landmarks.shape[1]):
+            a_bin = bin_indices_angle[i]
+            r_bin = bin_indices_radii[i]
+            bins_dict[(a_bin, r_bin)].append(i)
+
+        for (a_bin, r_bin), idx_list in bins_dict.items():
+            count_bin = len(idx_list)
             if count_bin <= max_per_bin:
-                keep_mask[idx_in_bin] = True
+                keep_mask[idx_list] = True
             else:
-                # pick random or top scoring (example: random)
-                chosen = np.random.choice(idx_in_bin, size=max_per_bin, replace=False)
+                chosen = np.random.choice(idx_list, size=max_per_bin, replace=False)
                 keep_mask[chosen] = True
 
         # 2e) Final keep
-        landmarks = landmarks[:, keep_mask]
-        keypoints = keypoints[:, keep_mask]
+        landmarks   = landmarks[:, keep_mask]
+        keypoints   = keypoints[:, keep_mask]
         descriptors = descriptors[:, keep_mask]
 
         return landmarks, keypoints, descriptors
@@ -990,7 +1014,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
-            self.num_keypoints = 100#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
             # print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
