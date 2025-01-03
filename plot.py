@@ -47,7 +47,7 @@ class Plotter:
 
         # Pause loop
         while self.paused[0]:
-            plt.pause(0.1)
+            plt.pause(0.25)
 
     def plot_3d(self,history_landmarks, history, triangulated_landmarks):
 

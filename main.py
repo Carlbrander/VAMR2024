@@ -123,7 +123,7 @@ def dataset_setup(args):
 
     # need to set bootstrap_frames
     if ds == 0:
-        bootstrap_frames = [0, 2]
+        bootstrap_frames = [0, 8]
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
@@ -237,6 +237,5 @@ if __name__ == "__main__":
 
     #Continuous Operation
     continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
-
 
 
