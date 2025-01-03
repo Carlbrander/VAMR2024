@@ -4,7 +4,10 @@ class Benchmarker:
     def __init__(self, gt_camera_position, ds):
         if ds == 0:
             self.name = "kitti"
-
+        elif ds == 1:
+            self.name = "malaga"
+        elif ds == 2:
+            self.name = "parking"
         self._save_path = f"data/{self.name}/"
         self.state = np.empty((0, 4))  # Initialisiere als leeres 2D-Array
         self._avg_execution_time = 0
