@@ -183,8 +183,8 @@ class VisualOdometry:
                     self.K, 
                     distCoeffs=None,
                     iterationsCount=2000,
-                    reprojectionError=8.0,
-                    confidence=0.999)
+                    reprojectionError=10.0,
+                    confidence=0.995)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
 
@@ -278,7 +278,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-2:-1]:
+            for candidate in Hidden_state[:]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -334,7 +334,7 @@ class VisualOdometry:
         
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[:-1]:
+        for candidate in Hidden_state[:]:
             if len(candidate) == 0:
                 continue
             # Match features between the newest state and the candidate
@@ -379,7 +379,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-2:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[:]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -904,19 +904,19 @@ class VisualOdometry:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
-        # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        num_points_to_keep = 50
-        if triangulated_landmarks.shape[1] > num_points_to_keep:
-            history.texts.append("Too many new landmarks, reducing number")
-            # num_points_to_keep = int(100)
-            indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
-            triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
-            triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
-            triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
-            #update the Hidden state with the reduced number of new landmarks
-            Hidden_state[-1][0] = triangulated_keypoints
-            Hidden_state[-1][3] = triangulated_keypoints
-            Hidden_state[-1][6] = triangulated_descriptors
+        # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
+        # num_points_to_keep = 50
+        # if triangulated_landmarks.shape[1] > num_points_to_keep:
+        #     history.texts.append("Too many new landmarks, reducing number")
+        #     # num_points_to_keep = int(100)
+        #     indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
+        #     triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
+        #     triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
+        #     triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
+        #     #update the Hidden state with the reduced number of new landmarks
+        #     Hidden_state[-1][0] = triangulated_keypoints
+        #     Hidden_state[-1][3] = triangulated_keypoints
+        #     Hidden_state[-1][6] = triangulated_descriptors
 
         history.texts.append(f"Number of the triangulated_landmarks after reducing number: {triangulated_landmarks.shape[1]}")
 
@@ -936,7 +936,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[:-1]:
+        for candidate in Hidden_state[:]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)
@@ -1003,20 +1003,20 @@ class VisualOdometry:
         keypoints_positive = keypoints[:, positive_indices]
         descriptors_positive = descriptors[:, positive_indices]
 
-        # Filter negative landmarks (opposite of positive_indices)
-        negative_indices = np.where(dot_product <= 0)[0]
+        # # Filter negative landmarks (opposite of positive_indices)
+        # negative_indices = np.where(dot_product <= 0)[0]
 
-        landmarks_negative = landmarks[:, negative_indices]
-        keypoints_negative = keypoints[:, negative_indices]
-        descriptors_negative = descriptors[:, negative_indices]
+        # landmarks_negative = landmarks[:, negative_indices]
+        # keypoints_negative = keypoints[:, negative_indices]
+        # descriptors_negative = descriptors[:, negative_indices]
 
-        #flip location of negative landmarks around the camera location point
-        landmarks_negative = 2 * camera_position - landmarks_negative
+        # #flip location of negative landmarks around the camera location point
+        # landmarks_negative = 2 * camera_position - landmarks_negative
 
 
-        landmarks_positive = np.hstack((landmarks_positive, landmarks_negative))
-        keypoints_positive = np.hstack((keypoints_positive, keypoints_negative))
-        descriptors_positive = np.hstack((descriptors_positive, descriptors_negative))
+        # landmarks_positive = np.hstack((landmarks_positive, landmarks_negative))
+        # keypoints_positive = np.hstack((keypoints_positive, keypoints_negative))
+        # descriptors_positive = np.hstack((descriptors_positive, descriptors_negative))
 
 
         return landmarks_positive, keypoints_positive, descriptors_positive
