@@ -126,7 +126,7 @@ def dataset_setup(args):
 
     # need to set bootstrap_frames
     if ds == 0:
-        start = 0
+        start = 115
         bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
@@ -201,6 +201,28 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
     plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames)
 
     Hidden_state = []
+
+
+
+
+
+    # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
+    num_points_to_keep = 200
+    if landmarks.shape[1] > num_points_to_keep:
+        # history.texts.append("Too many new landmarks, reducing number")
+        # num_points_to_keep = int(100)
+        indices_to_keep = np.random.choice(landmarks.shape[1], num_points_to_keep, replace=False)
+        landmarks = landmarks[:, indices_to_keep]
+        keypoints = keypoints[:, indices_to_keep]
+        descriptors = descriptors[:, indices_to_keep]
+        # #update the Hidden state with the reduced number of new landmarks
+        # Hidden_state[-1][0] = triangulated_keypoints
+        # Hidden_state[-1][3] = triangulated_keypoints
+        # Hidden_state[-1][6] = triangulated_descriptors
+
+
+
+
   
     # Continuous operation
     for i in range(args.bootstrap_frames[1] + 1, args.last_frame + 1):

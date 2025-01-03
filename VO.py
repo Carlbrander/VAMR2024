@@ -128,12 +128,21 @@ class VisualOdometry:
 
 
             # Match descriptors
-            bf = cv2.BFMatcher()
-            knn_matches = bf.knnMatch(descriptors_0, descriptors_1, k=2)
+            FLANN_INDEX_KDTREE = 1
+            index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+            search_params = dict(checks=50)  # Number of checks to speed up search
+
+            # Create FLANN-based matcher
+            flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+            # Perform KNN matching
+            knn_matches = flann.knnMatch(descriptors_0, descriptors_1, k=2)
 
 
             good = []
             for i, pair in enumerate(knn_matches):
+                # m, n, _, _, _ = pair
+                # good.append(m)
                 try:
                     m, n = pair
                     if m.distance < 0.75*n.distance:
@@ -155,12 +164,6 @@ class VisualOdometry:
             matched_keypoints_0 = np.array([keypoints_0[match.queryIdx] for match in good])
             matched_keypoints_1 = np.array([keypoints_1[match.trainIdx] for match in good])
 
-           
-
-
-
-
-        history.matches.append([matched_keypoints_1.T, matched_keypoints_0.T, matches])
 
         return matched_keypoints_1.T, matched_keypoints_0.T, matches
             
@@ -176,15 +179,15 @@ class VisualOdometry:
 
         """
         # Estimate motion using PnP
-        retval, rotation_vector, translation_vector, inliers = \
-            cv2.solvePnPRansac(
-                    landmarks_1.astype(np.float32).T, 
-                    keypoints_1.astype(np.float32).T, 
-                    self.K, 
-                    distCoeffs=None,
-                    iterationsCount=2000,
-                    reprojectionError=10.0,
-                    confidence=0.995)
+        retval, rotation_vector, translation_vector, inliers = cv2.solvePnPRansac(
+            landmarks_1.astype(np.float32).T, 
+            keypoints_1.astype(np.float32).T, 
+            self.K, 
+            distCoeffs=None,
+            iterationsCount=2000,
+            reprojectionError=10.0,
+            confidence=0.995,
+        )
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
 
@@ -334,14 +337,20 @@ class VisualOdometry:
         
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
+
+        all_kp1 = np.empty((2, 0))
+        all_kp2 = np.empty((2, 0))
+
+
         for candidate in Hidden_state[:-1]:
             if len(candidate) == 0:
                 continue
             # Match features between the newest state and the candidate
-            _, _, matches = self.match_features(
+            kp1, kp2, matches = self.match_features(
                 newest_Hidden_state[6], candidate[6],
                 newest_Hidden_state[3], candidate[3], history
             )
+            print(f"np.count_nonzero(matches != -1): {np.count_nonzero(matches != -1)}")
 
             #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
             for i in candidate[3].T:
@@ -360,8 +369,14 @@ class VisualOdometry:
 
             # Update the mask to False for matched indices
             indices_to_keep[matched_indices] = False
-            
-        
+
+            if kp1.shape != (0,) and kp2.shape != (0,):
+                all_kp1 = np.hstack((all_kp1, kp1))
+                all_kp2 = np.hstack((all_kp2, kp2))
+
+        history.matches.append([all_kp1, all_kp2, []])
+
+
         # Apply the mask once after the loop
         newest_Hidden_state[0] = newest_Hidden_state[0][:, indices_to_keep]
         newest_Hidden_state[3] = newest_Hidden_state[3][:, indices_to_keep]
@@ -393,8 +408,8 @@ class VisualOdometry:
                 #check if baseline between the two camera poses is not too small
                 baseline = np.linalg.norm(candidate[5] - candidate[2])
 
-                if baseline < self.min_baseline:
-                    continue
+                # if baseline < self.min_baseline:
+                #     continue
 
                 for landmark in landmarks.T:
                     # Calculate bearing angle between the landmark and both camera views
@@ -949,7 +964,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
-            self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            self.num_keypoints = 100#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
             # print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
@@ -1156,8 +1171,8 @@ class VisualOdometry:
             # Here we assume kp1[i] = [x_i, y_i], shape is (N,2).
             # cv2.KeyPoint expects (x, y, size).
             # Convert kp1, kp2 to lists of cv2.KeyPoint.
-            # print("kp1.shape", kp1.shape)
-            # print("kp2.shape", kp2.shape)
+            print("kp1.shape", kp1.shape)
+            print("kp2.shape", kp2.shape)
             if kp1.shape != (0,) and kp2.shape != (0,):
                 keypoints1 = [cv2.KeyPoint(x=float(kp1[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp1.shape[1])]
                 keypoints2 = [cv2.KeyPoint(x=float(kp2[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp2.shape[1])]
