@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-from scipy.optimize import least_squares
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
 from bootstrapping_utils.exercise_3.harris import harris
@@ -337,11 +335,11 @@ class VisualOdometry:
         for candidate in Hidden_state[:-1]:
             if len(candidate) == 0:
                 continue
-            # Match features between the newest state and the candidate
-            _, _, matches = self.match_features(
-                newest_Hidden_state[6], candidate[6],
-                newest_Hidden_state[3], candidate[3]
-            )
+            ## Match features between the newest state and the candidate
+            #_, _, matches = self.match_features(
+            #    newest_Hidden_state[6], candidate[6],
+            #    newest_Hidden_state[3], candidate[3]
+            #)
 
             #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
             for i in candidate[3].T:
@@ -353,13 +351,13 @@ class VisualOdometry:
 
           
             # Indices where there is a match
-            matched_indices = np.where(matches != -1)[0]
-
+            #matched_indices = np.where(matches != -1)[0]
+        
             # Ensure matched_indices are within bounds
-            matched_indices = matched_indices[matched_indices < indices_to_keep.size]
+            #matched_indices = matched_indices[matched_indices < indices_to_keep.size]
 
             # Update the mask to False for matched indices
-            indices_to_keep[matched_indices] = False
+            #indices_to_keep[matched_indices] = False
             
         
         # Apply the mask once after the loop
@@ -556,231 +554,6 @@ class VisualOdometry:
 
         return landmarks, keypoints, descriptors
 
-    def R_to_Quaternion(self, R):
-
-        #convert the rotation matrix to a quaternion for bundle adjustment
-        #get the trace of the rotation matrix
-        trace = np.trace(R)
-
-        #get the diagonal elements of the rotation matrix
-        R_diag = np.diag(R)
-
-        #get the maximum diagonal element
-        max_diag = np.max(R_diag)
-
-        #initialize the quaternion
-        q = np.zeros(4)
-
-        if max_diag == R_diag[0]:
-            
-            q[0] = 1 + 2 * R[0, 0] - trace
-            q[1] = R[1, 0] + R[0, 1]
-            q[2] = R[2, 0] + R[0, 2]
-            q[3] = R[1, 2] - R[2, 1]
-
-        elif max_diag == R_diag[1]:
-
-            q[0] = R[1, 0] + R[0, 1]
-            q[1] = 1 + 2 * R[1, 1] - trace
-            q[2] = R[2, 1] + R[1, 2]
-            q[3] = R[2, 0] - R[0, 2]
-
-        else:
-
-            q[0] = R[2, 0] + R[0, 2]
-            q[1] = R[2, 1] + R[1, 2]
-            q[2] = 1 + 2 * R[2, 2] - trace
-            q[3] = R[0, 1] - R[1, 0]
-
-        #normalize the quaternion
-
-        q = q / np.linalg.norm(q)
-
-        return q
-    
-    def Quaternion_to_R(self, q):
-        
-        #convert the quaternion to a rotation matrix
-        R = np.zeros((3, 3))
-
-        R[0, 0] = 1 - 2 * q[2]**2 - 2 * q[3]**2
-        R[0, 1] = 2 * q[1] * q[2] - 2 * q[0] * q[3]
-        R[0, 2] = 2 * q[1] * q[3] + 2 * q[0] * q[2]
-
-        R[1, 0] = 2 * q[1] * q[2] + 2 * q[0] * q[3]
-        R[1, 1] = 1 - 2 * q[1]**2 - 2 * q[3]**2
-        R[1, 2] = 2 * q[2] * q[3] - 2 * q[0] * q[1]
-
-        R[2, 0] = 2 * q[1] * q[3] - 2 * q[0] * q[2]
-        R[2, 1] = 2 * q[2] * q[3] + 2 * q[0] * q[1]
-        R[2, 2] = 1 - 2 * q[1]**2 - 2 * q[2]**2
-
-        return R
-
-    def Bundle_Adjustment(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, history):
-
-            
-        # Parameters to optimize
-        window_size = min(5, len(history.R))
-        R_list = history.R[-window_size:] + [R_1]
-        t_list = history.t[-window_size:] + [t_1]
-        landmarks_list = history.landmarks[-window_size:] + [landmarks_1]
-
-        num_frames = len(R_list)
-        K = self.K 
-
-        # Prepare variables and indexing
-        variables = []
-        pose_indices = []
-        landmark_indices = []
-        num_landmarks = 0
-
-        # Flatten poses into variables
-        for i in range(num_frames):
-            R_mat = R_list[i]
-            t_vec = t_list[i].flatten()
-            quaternion = self.R_to_Quaternion(R_mat)
-            pose_indices.append(len(variables))
-            variables.extend(quaternion)
-            variables.extend(t_vec)
-
-        # Flatten landmarks into variables
-        for i, landmarks in enumerate(landmarks_list):
-            for j in range(landmarks.shape[1]):
-                landmark_indices.append((i, j, len(variables)))
-                variables.extend(landmarks[:, j])
-                num_landmarks += 1
-
-        variables = np.array(variables)
-
-        # Collect observations
-        observations = []
-        landmark_global_idx = 0
-        for frame_idx, (keypoints, landmarks) in enumerate(zip(history.keypoints[-window_size:] + [keypoints_1], landmarks_list)):
-            num_kp = keypoints.shape[1]
-            for kp_idx in range(num_kp):
-                keypoint = keypoints[:, kp_idx]
-                observations.append({
-                    'frame_idx': frame_idx,
-                    'landmark_idx': landmark_global_idx,
-                    'keypoint': keypoint
-                })
-                landmark_global_idx += 1
-
-        # Cost function
-        def cost_function(vars):
-            residuals = []
-            # Reconstruct poses
-            poses = []
-            for i in range(num_frames):
-                idx = pose_indices[i]
-                quaternion = vars[idx:idx+4]
-                t_vec = vars[idx+4:idx+7]
-                R_mat = self.Quaternion_to_R(quaternion)
-                t_vec = t_vec.reshape((3,1))
-                poses.append({'R': R_mat, 't': t_vec})
-
-            # Reconstruct landmarks
-            landmarks = []
-            for i in range(num_landmarks):
-                idx = landmark_indices[i][2]
-                X = vars[idx:idx+3].reshape((3,1))
-                landmarks.append(X)
-
-            # Compute residuals
-            for obs in observations:
-                frame_idx = obs['frame_idx']
-                landmark_idx = obs['landmark_idx']
-                keypoint = obs['keypoint']
-                pose = poses[frame_idx]
-                X = landmarks[landmark_idx]
-
-                # Project point
-                X_cam = pose['R'] @ X + pose['t']
-                X_proj = K @ X_cam
-
-                u_proj = X_proj[0][0] / X_proj[2][0]
-                v_proj = X_proj[1][0] / X_proj[2][0]
-
-                residual_u = keypoint[0] - u_proj
-                residual_v = keypoint[1] - v_proj
-
-                residuals.extend([residual_u, residual_v])
-
-            return residuals
-        
-        # Optimize the cost function
-        res = least_squares(cost_function, variables, method='trf',ftol=1e-6,xtol=1e-6, gtol=1e-6, loss='linear', verbose=2)
-
-        optimized_vars = res.x
-
-        # Extract optimized poses and landmarks
-        poses = []
-        for i in range(num_frames):
-            idx = pose_indices[i]
-            quaternion = optimized_vars[idx:idx+4]
-            t_vec = optimized_vars[idx+4:idx+7]
-            R_mat = self.Quaternion_to_R(quaternion)
-            t_vec = t_vec.reshape((3,1))
-            poses.append({'R': R_mat, 't': t_vec})
-        
-
-        landmarks = []
-        for i in range(num_landmarks):
-            idx = landmark_indices[i][2]
-            X = optimized_vars[idx:idx+3].reshape((3,1))
-            landmarks.append(X)
-
-        # Update history with optimized poses and landmarks
-        for i in range(num_frames -1):
-            history.R[-window_size + i] = poses[i]['R']
-            history.t[-window_size + i] = poses[i]['t']
-        
-        optimized_R = poses[-1]['R']
-        optimized_t = poses[-1]['t']
-
-        # Update landmarks in history
-        landmark_idx = 0
-        for i in range(num_frames):
-            landmarks_frame = landmarks_list[i]
-            num_landmarks_frame = landmarks_frame.shape[1]
-            optimized_landmarks_frame = np.zeros((3, num_landmarks_frame))
-            for j in range(num_landmarks_frame):
-                optimized_landmarks_frame[:, j] = landmarks[landmark_idx].flatten()
-                landmark_idx +=1
-            history.landmarks[-window_size + i] = optimized_landmarks_frame
-
-        # Identify retained landmarks for the current frame based on reprojection error
-        current_frame_landmarks = optimized_landmarks_frame
-        current_frame_keypoints = history.keypoints[-1]
-        retained_landmark_indices = []
-
-        for j in range(current_frame_landmarks.shape[1]):
-            X = current_frame_landmarks[:, j].reshape(3,1)
-            pose = poses[-1]
-            X_cam = pose['R'] @ X + pose['t']
-            X_proj = K @ X_cam
-
-            u_proj = X_proj[0][0] / X_proj[2][0]
-            v_proj = X_proj[1][0] / X_proj[2][0]
-
-            keypoint = current_frame_keypoints[:, j]
-            reproj_error = np.sqrt((keypoint[0] - u_proj)**2 + (keypoint[1] - v_proj)**2)
-
-            if reproj_error < 2.0:
-                retained_landmark_indices.append(j)
-            # Ensure retained_landmark_indices does not exceed the number of keypoints
-            retained_landmark_indices = [idx for idx in retained_landmark_indices if idx < history.keypoints[-1].shape[1]]
-
-        # Update keypoints and descriptors based on retained landmarks
-        updated_keypoints = history.keypoints[-1][:, retained_landmark_indices]
-        updated_descriptors = descriptors_1[retained_landmark_indices]
-
-        # Optimized landmarks for current frame
-        optimized_landmarks_current = history.landmarks[-1]
-
-        return optimized_R, optimized_t, optimized_landmarks_current, updated_keypoints, updated_descriptors, history.landmarks
-
     def add_new_landmarks(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history):
         print(f"-100. landmarks_1.shape: {landmarks_1.shape}")
 
@@ -801,21 +574,44 @@ class VisualOdometry:
         print("Number of Keypoints allowed to detect:", self.num_keypoints)
         print("Number of freshly Detected Keypoints:", new_keypoints.shape[1])
 
+
+
+
+
+
+        #remove_indices = []
+#
+        ####NMS on the new keypoints only between each other ###
+        #for i in range(new_keypoints.shape[1]):
+        #    for j in range(new_keypoints.shape[1]):
+        #        if i == j:
+        #            continue
+        #        dist = np.linalg.norm(new_keypoints[:, i] - new_keypoints[:, j])
+        #        if dist < self.nonmaximum_suppression_radius:
+        #            remove_indices.append(i)
+        #            break
+#
+        #new_keypoints = np.delete(new_keypoints, remove_indices, axis=1)
+        #new_descriptors = np.delete(new_descriptors, remove_indices, axis=1)
+
+
+        print("Number of Keypoints after NMS between all new keypoints:", new_keypoints.shape[1])
+
+
+
         # Remove all the newly detected keypoints based on the keypoints
         # that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
-        removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
-
-
-        #remove the newly detected keypoints that are too close to the already tracked keypoints
-        new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
-        new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
+        #removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
+#
+#
+        ##remove the newly detected keypoints that are too close to the already tracked keypoints
+        #new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
+        #new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
 
         print("Number of new keypoints after NMS added to latest Hidden State:", new_keypoints.shape[1])
 
 
         # Add new keypoints & descriptors to the Hidden_state
-        # TODO: why are new keypoints, rotation and translation doubled?
-        # TODO: Why do appear rotation and translation at all? also counts as landmakrs because len>0
         Hidden_state.append([new_keypoints, R_1, t_1.reshape(3,1), new_keypoints, R_1, t_1.reshape(3,1), new_descriptors, self.current_image_counter]) 
         
         
@@ -909,7 +705,10 @@ class VisualOdometry:
         print(f"2. Number of the triangulated_landmarks before reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
         print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
 
-        num_points_to_keep = 50
+        if landmarks_1.shape[1] < 100:
+            num_points_to_keep = 100
+        else:
+            num_points_to_keep = 50
         if triangulated_landmarks.shape[1] > num_points_to_keep:
             print("Too many new landmarks, reducing number")
             # num_points_to_keep = int(100)
@@ -956,7 +755,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
-            self.num_keypoints = max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            self.num_keypoints = 800#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
             print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
@@ -970,7 +769,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
-            self.threshold_angle = round(max(0.001, landmarks_1.shape[1] / 18000), 2)
+            self.threshold_angle = 0.0001#round(max(0.001, landmarks_1.shape[1] / 18000), 2)
             print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
@@ -1029,15 +828,6 @@ class VisualOdometry:
         return landmarks_positive, keypoints_positive, descriptors_positive
 
     def process_image(self, prev_image, image, keypoints_0, landmarks_0, descriptors_0, R_0, t_0, Hidden_state, history):
-        
-
-
-        #TODO: find memory leak in history
-        #TODO: find possible memory leak in Hidden_state
-        
-
-
-
 
         self.image = image
         self.prev_image = prev_image
@@ -1069,18 +859,7 @@ class VisualOdometry:
 
         keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors = \
             self.add_new_landmarks(keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history)
-        
-
-        ### Bundle Adjustment ###
-        #if self.current_image_counter > 11:
-            #print("Bundle Adjustment")
-            #R_2, t_2, landmarks_3, updated_keypoints, descriptors_updated, landmarks_history = self.Bundle_Adjustment(keypoints_2, landmarks_2, descriptors_2, R_1, t_1, history)
-            #print("modified R_2 from : ", t_1, "to: ", t_2, "with bundle adjustment")
-#
-            #keypoints_3 = updated_keypoints
-            #descriptors_3 = descriptors_updated
-
-          
+    
 
 
         #keeping this in case we want to fix the bundle adjustment
@@ -1089,15 +868,7 @@ class VisualOdometry:
         landmarks_3 = landmarks_2
         keypoints_3 = keypoints_2
         descriptors_3 = descriptors_2
-        #update hidden state with the new camera location
-        #if triangulated_keypoints.size != 0:
-        #    Hidden_state[-1][1] = R_2
-        #    Hidden_state[-1][2] = t_2.reshape(3, 1)
-        #    Hidden_state[-1][4] = R_2
-        #    Hidden_state[-1][5] = t_2.reshape(3, 1)
-
-
-
+     
 
         ###Update History###
         history.keypoints.append(keypoints_3)

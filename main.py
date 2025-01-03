@@ -85,7 +85,7 @@ def dataset_setup(args):
         kitti_path = "data/kitti/"
         assert 'kitti_path' in locals()
         poses = read_poses_kitti(os.path.join(kitti_path, 'poses', '05.txt'))
-        last_frame = 4540
+        last_frame = 2759
         K = np.array([[7.188560000000e+02, 0, 6.071928000000e+02],
                       [0, 7.188560000000e+02, 1.852157000000e+02],
                       [0, 0, 1]])
@@ -94,10 +94,14 @@ def dataset_setup(args):
         malaga_path = "data/malaga-urban-dataset-extract-07/"
         assert 'malaga_path' in locals()
         images = os.listdir(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images'))
+        images.sort()
         left_images = images[2::2]
         #sort images by name
         left_images.sort()
-        last_frame = len(left_images)
+        #there should be 2121 frames
+        last_frame = len(left_images)-1
+        #check if any of the images contains "right" in the name
+        assert not any("right" in image for image in left_images), "Images contain 'right' in the name, sorting not correct"
         K = np.array([[621.18428, 0, 404.0076],
                       [0, 621.18428, 309.05989],
                       [0, 0, 1]])
@@ -143,11 +147,18 @@ def dataset_setup(args):
     args.K = K
     args.last_frame = last_frame
     args.bootstrap_frames = bootstrap_frames
-    args.gt_Rt = poses
-    args.gt_camera_position = poses
+    if ds == 0:
+        args.gt_Rt = poses
+        args.gt_camera_position = poses
+    elif ds == 2:
+        args.gt_camera_position = ground_truth
+    elif ds == 1:
+        #empty array with 12 columns for now
+        args.gt_camera_position = np.array([[]])    
     args.img0 = img0
     args.img1 = img1
-    plot_camera_trajectory(args.gt_camera_position)
+    if ds != 1:
+        plot_camera_trajectory(args.gt_camera_position)
 
     return args
 
@@ -188,8 +199,10 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
 
     prev_img = args.img1
     vo = VisualOdometry(args)
+    
     benchmarker = Benchmarker(args.gt_camera_position, args.ds)
     plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm)
+    
 
     Hidden_state = []
   
@@ -215,6 +228,8 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         #update previous image
         prev_img = image
 
+    print("=========Finished processing all frames ===========")
+
 
 if __name__ == "__main__":
 
@@ -228,8 +243,9 @@ if __name__ == "__main__":
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
 
     # get scale
-    scale = getScale(args.gt_camera_position[args.bootstrap_frames[1]], t)
-    args.gt_camera_position = args.gt_camera_position*scale
+    if args.ds != 1:
+        scale = getScale(args.gt_camera_position[args.bootstrap_frames[1]], t)
+        args.gt_camera_position = args.gt_camera_position*scale
 
     #Initialize History
     history = History(keypoints, landmarks, R, t)
