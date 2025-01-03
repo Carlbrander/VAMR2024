@@ -174,6 +174,8 @@ class History:
 
         self.texts = []
 
+        self.matches = []
+
 def load_image(ds, i,args):
 
     if ds == 0:

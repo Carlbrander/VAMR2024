@@ -93,7 +93,7 @@ class VisualOdometry:
 
         return keypoints, descriptors
 
-    def match_features(self, descriptors_1, descriptors_0, keypoints_1, keypoints_0):
+    def match_features(self, descriptors_1, descriptors_0, keypoints_1, keypoints_0, history):
         """
         Match features between two frames
 
@@ -160,7 +160,7 @@ class VisualOdometry:
 
 
 
-        
+        history.matches.append([matched_keypoints_1.T, matched_keypoints_0.T, matches])
 
         return matched_keypoints_1.T, matched_keypoints_0.T, matches
             
@@ -326,7 +326,7 @@ class VisualOdometry:
 
         return new_Hidden_state
 
-    def remove_duplicate_keypoints(self, Hidden_state):
+    def remove_duplicate_keypoints(self, Hidden_state, history):
 
       
         newest_Hidden_state = Hidden_state[-1]
@@ -340,7 +340,7 @@ class VisualOdometry:
             # Match features between the newest state and the candidate
             _, _, matches = self.match_features(
                 newest_Hidden_state[6], candidate[6],
-                newest_Hidden_state[3], candidate[3]
+                newest_Hidden_state[3], candidate[3], history
             )
 
             #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
@@ -841,7 +841,7 @@ class VisualOdometry:
 
         
         ### Remove Duplicate Keypoints in newest Hidden state ###
-        Hidden_state = self.remove_duplicate_keypoints(Hidden_state)
+        Hidden_state = self.remove_duplicate_keypoints(Hidden_state, history)
 
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
@@ -1135,6 +1135,64 @@ class VisualOdometry:
         self.current_image_counter += 1
 
 
+
+
+        def plot_matches(img1, img2, kp1, kp2, matches):
+            """
+            Plots matches between img1 and img2 using the provided kp1, kp2 keypoints.
+            
+            Args:
+                img1 (numpy.ndarray): The first image (BGR format).
+                img2 (numpy.ndarray): The second image (BGR format).
+                kp1 (numpy.ndarray): Array of shape (N, 2) with x,y keypoint coordinates for the first image.
+                kp2 (numpy.ndarray): Array of shape (N, 2) with x,y keypoint coordinates for the second image.
+                matches (numpy.ndarray): 1D array where matches[i] is either -1 (no match)
+                                         or an index referencing a corresponding keypoint.
+                                         In this snippet, you're using it so that if matches[i] != -1,
+                                         then keypoint i is matched with keypoint i (i.e., a 1-to-1 match).
+            """
+
+            # Convert kp1, kp2 to lists of cv2.KeyPoint.
+            # Here we assume kp1[i] = [x_i, y_i], shape is (N,2).
+            # cv2.KeyPoint expects (x, y, size).
+            # Convert kp1, kp2 to lists of cv2.KeyPoint.
+            # print("kp1.shape", kp1.shape)
+            # print("kp2.shape", kp2.shape)
+            if kp1.shape != (0,) and kp2.shape != (0,):
+                keypoints1 = [cv2.KeyPoint(x=float(kp1[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp1.shape[1])]
+                keypoints2 = [cv2.KeyPoint(x=float(kp2[0, i]), y=float(kp1[1, i]), size=50) for i in range(kp2.shape[1])]
+
+                # Validate and build a list of DMatch objects for matched keypoints.
+                # print(f"kp1: {kp1}")
+                # print(f"matches.shape: {matches.shape}")
+                # print(matches)
+                dmatches = [cv2.DMatch(_queryIdx=i, _trainIdx=i, _imgIdx=0, _distance=0) for i in range(len(keypoints1))]
+
+                # print(dmatches)
+
+                # Draw the matches on a single image
+                img_matches = cv2.drawMatches(
+                    img1, 
+                    keypoints1,
+                    img2, 
+                    keypoints2, 
+                    dmatches, 
+                    None,
+                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
+                    matchesThickness=5,
+                )
+
+
+
+                # Plot using matplotlib
+                plt.figure(figsize=(25, 18))
+                plt.imshow(img_matches)
+                plt.axis('off')
+                plt.savefig(f"output/debug_matches_{len(history.camera_position):06}.png")
+                plt.close()
+
+        if history.matches:
+            plot_matches(prev_image, image, history.matches[-1][0], history.matches[-1][1], history.matches[-1][2]) 
 
 
 
