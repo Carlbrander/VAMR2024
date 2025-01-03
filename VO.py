@@ -327,49 +327,32 @@ class VisualOdometry:
         return new_Hidden_state
 
     def remove_duplicate_keypoints(self, Hidden_state):
-
-      
         newest_Hidden_state = Hidden_state[-1]
         num_keypoints = newest_Hidden_state[0].shape[1]
-        
+
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
         for candidate in Hidden_state[:-1]:
             if len(candidate) == 0:
                 continue
-            ## Match features between the newest state and the candidate
-            #_, _, matches = self.match_features(
-            #    newest_Hidden_state[6], candidate[6],
-            #    newest_Hidden_state[3], candidate[3]
-            #)
 
-            #do spatial NMS between the keypoints of the newest hidden state and the keypoints of the candidate
-            for i in candidate[3].T:
-                for j in newest_Hidden_state[3].T:
-                    if np.linalg.norm(i - j) < self.nonmaximum_suppression_radius:
-                        indices_to_keep[np.where(np.all(newest_Hidden_state[3].T == j, axis=1))] = False
+            # Vectorized distance calculation between keypoints
+            dist_matrix = np.linalg.norm(
+                newest_Hidden_state[3][:, :, np.newaxis] - candidate[3][:, np.newaxis, :], axis=0
+            )
 
+            # Find indices where distance is less than the suppression radius
+            close_indices = np.any(dist_matrix < self.nonmaximum_suppression_radius, axis=1)
 
+            # Update indices to keep
+            indices_to_keep[close_indices] = False
 
-          
-            # Indices where there is a match
-            #matched_indices = np.where(matches != -1)[0]
-        
-            # Ensure matched_indices are within bounds
-            #matched_indices = matched_indices[matched_indices < indices_to_keep.size]
-
-            # Update the mask to False for matched indices
-            #indices_to_keep[matched_indices] = False
-            
-        
         # Apply the mask once after the loop
         newest_Hidden_state[0] = newest_Hidden_state[0][:, indices_to_keep]
         newest_Hidden_state[3] = newest_Hidden_state[3][:, indices_to_keep]
         newest_Hidden_state[6] = newest_Hidden_state[6][:, indices_to_keep]
 
         Hidden_state[-1] = newest_Hidden_state
-
-       
 
         return Hidden_state
 
@@ -428,7 +411,7 @@ class VisualOdometry:
 
                 # If angle > threshold, add to lists
                 for idx, angle in enumerate(angles):
-                    if angle+abs(pitch) >= self.threshold_angle:
+                    if angle >= self.threshold_angle:
                         new_keypoints.append(candidate[3][:, idx])
                         new_descriptors.append(candidate[6][:, idx])
                         new_landmarks.append(landmarks[:, idx])

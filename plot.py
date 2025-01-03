@@ -43,30 +43,27 @@ class Plotter:
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        plt.pause(0.01)
+        plt.show(block=False)
+        plt.pause(0.00000000001)
         plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop
         while self.paused[0]:
             plt.pause(0.1)
 
-    def plot_3d(self,history_landmarks, history, triangulated_landmarks):
-
+    def plot_3d(self, history_landmarks, history, triangulated_landmarks):
         ax_3d = self.fig.add_subplot(231)
         
         # Plot estimated trajectory
-        est_trans_x = [point[0] for point in history.camera_position]
-        est_trans_z = [point[2] for point in history.camera_position]
-        ax_3d.plot(est_trans_x, est_trans_z, 'r', marker='*', markersize=3, label='Estimated pose')
+        est_trans = np.array(history.camera_position)
+        ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'r', marker='*', markersize=3, label='Estimated pose')
         
         # Plot ground truth trajectory if available
         if len(self.gt_camera_position) > 0:
-            gt_x = [point[0] for point in self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1]]
-            gt_z = [point[1] for point in self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1]]
-            bm_x = [point[0] for point in self.camera_position_bm[:len(history.camera_position)]]
-            bm_z = [point[1] for point in self.camera_position_bm[:len(history.camera_position)]]
-            ax_3d.plot(gt_x, gt_z, 'b', marker='*', markersize=3, label='Scaled GT')
-            ax_3d.plot(bm_x, bm_z, 'y', marker='*', markersize=3, label='Benchmark')
+            gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
+            bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
+            ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled GT')
+            ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Estimated trajectory')
         ax_3d.axis('equal')
