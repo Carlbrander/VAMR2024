@@ -408,8 +408,8 @@ class VisualOdometry:
                 #check if baseline between the two camera poses is not too small
                 baseline = np.linalg.norm(candidate[5] - candidate[2])
 
-                # if baseline < self.min_baseline:
-                #     continue
+                if baseline < self.min_baseline:
+                    continue
 
                 for landmark in landmarks.T:
                     # Calculate bearing angle between the landmark and both camera views
@@ -515,59 +515,86 @@ class VisualOdometry:
         return landmarks, keypoints, descriptors
 
     def statistical_filtering(self, keypoints, landmarks, descriptors, R_1, t_1):
+        """
+        A one-stop 'statistical_filtering' that combines:
+        1. Distance-based and outlier-based filtering (non-recursive).
+        2. Angular-based binning to ensure a more even horizontal distribution.
+        """
 
-        #This function checks for landmarks that are a lot further away from the camera than the average distance of all landmarks
-        #and removes them from the list of landmarks
+        # -------------------------
+        # (1) Normal filtering by distance, etc.
+        # -------------------------
+        if landmarks.size == 0:
+            return landmarks, keypoints, descriptors
+
+        # Compute the camera position
+        camera_position = -R_1.T @ t_1
+        camera_position = camera_position.flatten()
+
+        # 1a) Filter out extremely large outliers in the *landmarks distribution* itself
+        mean_landmark = np.mean(landmarks, axis=1)
+        distances = np.linalg.norm(landmarks - mean_landmark.reshape(3,1), axis=0)
+        mean_distance = np.mean(distances)
+        # Keep only points within 5x average spread
+        idx_keep = (distances < 5 * mean_distance)
+
+        # 1b) Filter by distance to camera
+        distances_to_camera = np.linalg.norm(landmarks - camera_position.reshape(3,1), axis=0)
+        mean_camdist = np.mean(distances_to_camera)
+        std_camdist = np.std(distances_to_camera)
+
+        # Keep only those not too close or too far from average
+        # For instance: ±2σ from mean, also clamp absolute [0.5 ... 150] as in your code
+        lower_bound = np.maximum(0.5, mean_camdist - 2*std_camdist)
+        upper_bound = np.minimum(150.0, mean_camdist + 2*std_camdist)
+        in_range = (distances_to_camera > lower_bound) & (distances_to_camera < upper_bound)
+
+        idx_keep = idx_keep & in_range
+
+        # Apply this first pass keep-mask
+        landmarks = landmarks[:, idx_keep]
+        keypoints = keypoints[:, idx_keep]
+        descriptors = descriptors[:, idx_keep]
 
         if landmarks.size == 0:
             return landmarks, keypoints, descriptors
-        
-        # Get mean of all new landmarks
-        mean_landmark = np.mean(landmarks, axis=1)
 
-        # Get distance of each landmark to the mean landmark
-        distances = np.linalg.norm(landmarks - mean_landmark[:, None], axis=0)
+        # -------------------------
+        # (2) Angular Binning to Evenly Distribute Points
+        # -------------------------
+        # 2a) Transform the (already filtered) landmarks into camera coords
+        #     shape -> (3, N)
+        land_cam = R_1 @ (landmarks - camera_position.reshape(3,1))
 
-        # Get mean distance
-        mean_distance = np.mean(distances)
+        # 2b) Compute horizontal angles alpha_i = atan2(X, Z)
+        angles = np.arctan2(land_cam[0,:], land_cam[2,:])  # shape (N,)
 
-        # Get indices of landmarks that are not too far away
-        indices_to_keep = distances < 5 * mean_distance
+        # 2c) Bin them
+        num_bins = 36   # e.g., 10° increments, 36 bins in [-π, π]
+        bin_edges = np.linspace(-np.pi, np.pi, num_bins + 1)
+        bin_indices = np.digitize(angles, bin_edges)  # yields bin index in [1..num_bins]
 
+        # 2d) Sub-sample each bin
+        max_per_bin = 5  # keep at most 10 points per bin
+        keep_mask = np.zeros(angles.shape[0], dtype=bool)  # track which points to keep
 
-       
-        #Check if the distance of the landmark to the camera is not too small or too large
-        #get the camera position
-        camera_position = -R_1.T @ t_1
+        for b in range(1, num_bins + 1):
+            idx_in_bin = np.where(bin_indices == b)[0]
+            count_bin = len(idx_in_bin)
+            if count_bin == 0:
+                continue
 
-        camera_position = camera_position.flatten()
+            if count_bin <= max_per_bin:
+                keep_mask[idx_in_bin] = True
+            else:
+                # pick random or top scoring (example: random)
+                chosen = np.random.choice(idx_in_bin, size=max_per_bin, replace=False)
+                keep_mask[chosen] = True
 
-        #get the distance of the landmarks to the camera
-        distances_to_camera = np.linalg.norm(landmarks - camera_position[:, None], axis=0)
-
-        #get the mean distance of the landmarks to the camera
-        mean_distance_to_camera = np.mean(distances_to_camera)
-
-        #get the standard deviation of the distances to the camera
-        std_distance_to_camera = np.std(distances_to_camera)
-
-        #get the indices of the landmarks that are not too close or too far away from the camera
-        indices_to_keep = np.logical_and(indices_to_keep,distances_to_camera > mean_distance_to_camera - 2 * std_distance_to_camera)
-
-        indices_to_keep = np.logical_and(indices_to_keep,  distances_to_camera < mean_distance_to_camera + 2 * std_distance_to_camera)
-
-        # Do an absolut filtering of the points that are too far away
-        indices_to_keep = np.logical_and(indices_to_keep, distances_to_camera < 150)
-
-        # Do an absollute filtering of the points that are too close
-        indices_to_keep = np.logical_and(indices_to_keep, distances_to_camera > 0.5)
-
-
-
-        # Apply mask
-        landmarks = landmarks[:, indices_to_keep]
-        keypoints = keypoints[:, indices_to_keep]
-        descriptors = descriptors[:, indices_to_keep]
+        # 2e) Final keep
+        landmarks = landmarks[:, keep_mask]
+        keypoints = keypoints[:, keep_mask]
+        descriptors = descriptors[:, keep_mask]
 
         return landmarks, keypoints, descriptors
 
@@ -907,8 +934,8 @@ class VisualOdometry:
         else:
             history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
 
-        # ### Statistical Filtering of new Landmarks ###
-        # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
+        ### Statistical Filtering of new Landmarks ###
+        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
 
         if len(triangulated_landmarks) > 0:
             history.texts.append(f"Number of the triangulated_landmarks after statistical_filtering: {triangulated_landmarks.shape[1]}")
@@ -919,19 +946,19 @@ class VisualOdometry:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
-        # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        num_points_to_keep = 50
-        if triangulated_landmarks.shape[1] > num_points_to_keep:
-            history.texts.append("Too many new landmarks, reducing number")
-            # num_points_to_keep = int(100)
-            indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
-            triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
-            triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
-            triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
-            #update the Hidden state with the reduced number of new landmarks
-            Hidden_state[-1][0] = triangulated_keypoints
-            Hidden_state[-1][3] = triangulated_keypoints
-            Hidden_state[-1][6] = triangulated_descriptors
+        # # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
+        # num_points_to_keep = 50
+        # if triangulated_landmarks.shape[1] > num_points_to_keep:
+        #     history.texts.append("Too many new landmarks, reducing number")
+        #     # num_points_to_keep = int(100)
+        #     indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
+        #     triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
+        #     triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
+        #     triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
+        #     #update the Hidden state with the reduced number of new landmarks
+        #     Hidden_state[-1][0] = triangulated_keypoints
+        #     Hidden_state[-1][3] = triangulated_keypoints
+        #     Hidden_state[-1][6] = triangulated_descriptors
 
         history.texts.append(f"Number of the triangulated_landmarks after reducing number: {triangulated_landmarks.shape[1]}")
 
@@ -978,7 +1005,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
-            self.threshold_angle = round(max(0.001, landmarks_1.shape[1] / 18000), 2)
+            self.threshold_angle = 0.00 #round(max(0.001, landmarks_1.shape[1] / 18000), 2)
             # print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):

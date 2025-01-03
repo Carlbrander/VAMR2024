@@ -126,7 +126,7 @@ def dataset_setup(args):
 
     # need to set bootstrap_frames
     if ds == 0:
-        start = 115
+        start = 0
         bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
