@@ -278,7 +278,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[:]:
+            for candidate in Hidden_state[:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -334,7 +334,7 @@ class VisualOdometry:
         
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[:]:
+        for candidate in Hidden_state[:-1]:
             if len(candidate) == 0:
                 continue
             # Match features between the newest state and the candidate
@@ -379,7 +379,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[:]):
+            for candidate_i, candidate in enumerate(Hidden_state[:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -905,18 +905,18 @@ class VisualOdometry:
         
 
         # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        # num_points_to_keep = 50
-        # if triangulated_landmarks.shape[1] > num_points_to_keep:
-        #     history.texts.append("Too many new landmarks, reducing number")
-        #     # num_points_to_keep = int(100)
-        #     indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
-        #     triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
-        #     triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
-        #     triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
-        #     #update the Hidden state with the reduced number of new landmarks
-        #     Hidden_state[-1][0] = triangulated_keypoints
-        #     Hidden_state[-1][3] = triangulated_keypoints
-        #     Hidden_state[-1][6] = triangulated_descriptors
+        num_points_to_keep = 50
+        if triangulated_landmarks.shape[1] > num_points_to_keep:
+            history.texts.append("Too many new landmarks, reducing number")
+            # num_points_to_keep = int(100)
+            indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
+            triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
+            triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
+            triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
+            #update the Hidden state with the reduced number of new landmarks
+            Hidden_state[-1][0] = triangulated_keypoints
+            Hidden_state[-1][3] = triangulated_keypoints
+            Hidden_state[-1][6] = triangulated_descriptors
 
         history.texts.append(f"Number of the triangulated_landmarks after reducing number: {triangulated_landmarks.shape[1]}")
 
@@ -936,7 +936,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[:]:
+        for candidate in Hidden_state[:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)
@@ -1049,6 +1049,19 @@ class VisualOdometry:
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
         inliers = inliers.flatten()
+
+        total_points = landmarks_1.shape[1]
+        num_inliers = len(inliers)
+        THRESH_INLIER_RATIO = 0.3  # For example, require at least 10% inliers
+
+        if total_points > 0:
+            inlier_ratio = num_inliers / total_points
+        else:
+            # No points left; you can skip or do a forced reinit
+            print("No points to track. Skipping pose update.")
+            return (keypoints_0, landmarks_0, descriptors_0, R_0, t_0, Hidden_state, history)
+
+
         keypoints_1 = keypoints_1[:, inliers]
         landmarks_1 = landmarks_1[:, inliers]
         history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
