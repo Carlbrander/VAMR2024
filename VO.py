@@ -286,16 +286,20 @@ class VisualOdometry:
 
             new_Hidden_state = Hidden_state 
             # Add the non-tracked features to the Hidden_state[-1]
-            new_Hidden_state[-1][0] = Hidden_state[-1][0][:, st == 0]
-            new_Hidden_state[-1][1] = Hidden_state[-1][1][:, st == 0]
-            new_Hidden_state[-1][2] = Hidden_state[-1][2][:, st == 0]
-            new_Hidden_state[-1][3] = Hidden_state[-1][3][:, st == 0]
-            new_Hidden_state[-1][4] = Hidden_state[-1][4][:, st == 0]
+            non_tracked_indices = st == 0
+            if np.any(non_tracked_indices):
+                new_Hidden_state[-1][0] = Hidden_state[-1][0][:, st == 0]
+                new_Hidden_state[-1][1] = Hidden_state[-1][1][:, st == 0]
+                new_Hidden_state[-1][2] = Hidden_state[-1][2][:, st == 0]
+                new_Hidden_state[-1][3] = Hidden_state[-1][3][:, st == 0]
+                new_Hidden_state[-1][4] = Hidden_state[-1][4][:, st == 0]
+            else:
+                new_Hidden_state[-1] = []
 
             # Only use the tracked features to append to the new Hidden_state
             oK = hidden_feature_original[:, st == 1]
-            oR = R_original[:, st == 1]
-            oT = t_original[:, st == 1]
+            oR = R_original[:, :,st == 1]
+            oT = t_original[:, :, st == 1]
             cK = hidden_features_new_frame[:, st == 1]
             descriptor = descriptor_last_frame[:, st == 1]
 
@@ -866,8 +870,8 @@ class VisualOdometry:
 
             # Add the new keypoints, R, t, and descriptors to the latest frame in Hidden_state
             Hidden_state[-1][0] = np.hstack((Hidden_state[-1][0], new_keypoints))
-            Hidden_state[-1][1] = np.hstack((Hidden_state[-1][1], R_matrices))
-            Hidden_state[-1][2] = np.hstack((Hidden_state[-1][2], t_vectors))
+            Hidden_state[-1][1] = np.concatenate((Hidden_state[-1][1], R_matrices), axis=2)
+            Hidden_state[-1][2] = np.concatenate((Hidden_state[-1][2], t_vectors), axis=2)
             Hidden_state[-1][3] = np.hstack((Hidden_state[-1][3], new_keypoints))
             Hidden_state[-1][4] = np.hstack((Hidden_state[-1][4], new_descriptors))
 
