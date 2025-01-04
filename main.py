@@ -33,7 +33,7 @@ def parse_arguments():
 
 
     args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
-    args.min_baseline = 0.5 # only for the start anyway, adapted dynamically
+    args.min_baseline = 0.0 # only for the start anyway, adapted dynamically
 
     return args
 
@@ -121,8 +121,7 @@ def dataset_setup(args):
 
         K = np.genfromtxt(StringIO(data_str), delimiter=',')
 
-        ground_truth = np.loadtxt(os.path.join(parking_path, 'poses.txt'))
-        ground_truth = ground_truth[:, [-9, -1]]
+        poses = read_poses_kitti(os.path.join(parking_path, 'poses.txt'))
     else:
         assert False
 
@@ -161,7 +160,11 @@ def dataset_setup(args):
         args.gt_t = np.array([pose[1] for pose in poses])
         plot_camera_trajectory(args.gt_t)
     elif ds == 2:
-        args.gt_camera_position = ground_truth
+        args.gt_Rt = poses
+        args.gt_camera_position = poses
+        args.gt_R = np.array([pose[0] for pose in poses])
+        args.gt_t = np.array([pose[1] for pose in poses])
+        plot_camera_trajectory(args.gt_t)
     elif ds == 1:
         #empty array with 12 columns for now
         args.gt_camera_position = np.array([[]])    
