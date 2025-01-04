@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
+import plotly.graph_objects as go
+
 
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
@@ -420,7 +422,7 @@ class VisualOdometry:
         angle = np.arccos(np.clip(np.dot(direction_1, direction_2), -1.0, 1.0))
 
         return angle
-    
+
     def NMS_on_keypoints(self, new_keypoints, old_keypoints, radius):
 
 
@@ -588,7 +590,7 @@ class VisualOdometry:
         q = q / np.linalg.norm(q)
 
         return q
-    
+
     def Quaternion_to_R(self, q):
         
         #convert the quaternion to a rotation matrix
@@ -947,7 +949,7 @@ class VisualOdometry:
         history.texts.append(f"keypoints_2.shape at the end of add_new_landmarks: {keypoints_2.shape}")
         
         return keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
-    
+
     def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1):
 
         #Adapt the number of keypoints to detect dynamically based on the number of keypoints in the hidden state
@@ -1075,7 +1077,7 @@ class VisualOdometry:
 
         keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors = \
             self.add_new_landmarks(keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history)
-    
+
 
 
         #keeping this in case we want to fix the bundle adjustment
@@ -1116,6 +1118,8 @@ class VisualOdometry:
 
 
         plot_2d(image, history)
+        # plot_trajectory_and_landmarks(history)
+        plot_trajectory_and_landmarks_3d(history, save_html=True)
 
 
 
@@ -1153,3 +1157,201 @@ def plot_2d(img, history):
     plt.axis('off')
     plt.savefig(f"output/debug_plot2d_{len(history.camera_position):06}.png")
     plt.close()
+
+
+def plot_trajectory_and_landmarks(history):
+    """
+    Plots the 3D camera trajectory (motion estimation) and triangulated 3D landmarks.
+
+    Args:
+        history: A data structure containing:
+                 - history.camera_position: list of camera centers in world coords
+                 - history.landmarks: list of np.ndarray(3, N) with 3D landmarks
+    """
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # 1) Plot camera trajectory
+    camera_positions = np.array(history.camera_position)  # shape (num_frames, 3)
+    # print(camera_positions)
+    ax.plot(camera_positions[:, 0, 0], camera_positions[:, 1, 0], camera_positions[:, 2, 0],
+            'bo-', label='Camera Trajectory')
+
+    # 2) Plot all triangulated landmarks
+    #    Suppose you store each frame's set of landmarks in history.landmarks
+    #    We'll collect them all into one array for plotting
+    all_points = []
+    for frame_landmarks in history.landmarks:
+        if frame_landmarks.size == 0:
+            continue
+        all_points.append(frame_landmarks)
+    if len(all_points) > 0:
+        all_points = np.hstack(all_points)  # shape (3, total_points)
+        ax.scatter(all_points[0, :],
+                   all_points[1, :],
+                   all_points[2, :],
+                   c='r', marker='.', s=2, label='Triangulated 3D Points')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('Camera Trajectory & Triangulated Points')
+    ax.legend()
+    ax.view_init(elev=25, azim=-60)  # Adjust view angle for clarity if you want
+    plt.tight_layout()
+    plt.savefig(f"output/trajectory_and_landmarks_{len(history.camera_position):06}.png")
+    plt.close()
+
+
+def compute_reprojection_errors(
+    R, t, K, landmarks_3d, keypoints_2d
+):
+    """
+    Compute reprojection errors for the given landmarks and their corresponding keypoints.
+
+    Args:
+        R: 3x3 rotation matrix (world -> camera)
+        t: 3x1 translation vector (world -> camera)
+        K: 3x3 camera intrinsics
+        landmarks_3d: shape (3, N), 3D points in world coords
+        keypoints_2d: shape (2, N), 2D measured keypoints in the image
+
+    Returns:
+        A 1D numpy array of reprojection errors for each landmark-keypoint pair.
+    """
+    # Transform points into camera coords
+    X_cam = R @ landmarks_3d + t  # shape (3, N)
+
+    # Project onto image plane
+    X_proj = K @ X_cam  # shape (3, N)
+    x_proj = X_proj[:2] / X_proj[2]  # shape (2, N) -> (u, v)
+
+    # Compute errors
+    diff = keypoints_2d - x_proj  # shape (2, N)
+    errors = np.sqrt(np.sum(diff**2, axis=0))  # shape (N,)
+    return errors
+
+def plot_reprojection_errors(errors, title_suffix=""):
+    """
+    Plot a histogram of reprojection errors.
+
+    Args:
+        errors (np.ndarray): 1D array of reprojection errors
+        title_suffix (str): Additional title info, e.g. "Frame 10"
+    """
+    plt.figure(figsize=(6,4))
+    plt.hist(errors, bins=30, color='g', alpha=0.7, edgecolor='black')
+    plt.title(f'Reprojection Error Distribution {title_suffix}')
+    plt.xlabel('Error (pixels)')
+    plt.ylabel('Count')
+    plt.grid(True)
+    plt.savefig(f"output/reprojection_errors_{title_suffix}.png")
+    plt.close()
+
+def check_reprojection_for_current_frame(R_1, t_1, K, landmarks_3d, keypoints_2d, frame_id):
+    # Compute errors
+    errors = compute_reprojection_errors(R_1, t_1, K, landmarks_3d, keypoints_2d)
+
+    # Plot or log the stats
+    plot_reprojection_errors(errors, title_suffix=f"Frame_{frame_id}")
+
+    # Optional: print mean or max error
+    print(f"[Frame {frame_id}] Mean reprojection error: {np.mean(errors):.2f} px, "
+          f"Max error: {np.max(errors):.2f} px")
+
+
+def plot_trajectory_and_landmarks_3d(history, save_html=True):
+    """
+    All points in a single trace, but colored by frame index (for example).
+    This creates a continuous gradient by default. You can switch to discrete if needed.
+    """
+
+    fig = go.Figure()
+
+    # Camera trajectory
+    camera_positions = np.array([pos.flatten() for pos in history.camera_position])  # shape (num_frames, 3)
+    fig.add_trace(
+        go.Scatter3d(
+            x=camera_positions[:, 0],
+            y=camera_positions[:, 1],
+            z=camera_positions[:, 2],
+            mode='lines+markers',
+            marker=dict(size=4, color='blue'),
+            line=dict(color='blue', width=2),
+            name='Camera Trajectory'
+        )
+    )
+
+    # Collect all points + frame indices
+    all_points = []
+    all_indices = []  # store frame index for each point
+    for frame_idx, frame_landmarks in enumerate(history.landmarks):
+        if frame_landmarks.size == 0:
+            continue
+        all_points.append(frame_landmarks)
+        # Suppose this frame has M points => create an array of shape (M,) with value frame_idx
+        all_indices.append(np.full(frame_landmarks.shape[1], frame_idx))
+
+    if len(all_points) == 0:
+        fig.show()
+        return
+
+    # Concatenate across frames
+    all_points = np.hstack(all_points)   # shape (3, total_points)
+    all_indices = np.concatenate(all_indices)  # shape (total_points,)
+
+    # Plot as one trace, colored by frame index
+    fig.add_trace(
+        go.Scatter3d(
+            x=all_points[0],
+            y=all_points[1],
+            z=all_points[2],
+            mode='markers',
+            marker=dict(
+                size=3,
+                color=all_indices,      # color = frame index array
+                colorscale='Turbo',     # or 'Viridis', 'Jet', 'Plotly3', etc.
+                showscale=True,         # add colorbar
+                colorbar=dict(title="Frame Index")
+            ),
+            name='Triangulated 3D Points'
+        )
+    )
+
+    camera = dict(
+        up=dict(x=0, y=-1, z=0),  # Setting Y as the up direction
+        center=dict(x=0, y=0, z=0),  # Centering the view
+        eye=dict(x=-camera_positions[-1, 0], y=camera_positions[-1, 1], z=-camera_positions[-1, 2])  # Adjusting the camera's position (x=2.5, y=0.1, z=0.1)
+    )
+
+    max_range = np.array([camera_positions.max(axis=0) - camera_positions.min(axis=0),
+                          np.hstack(history.landmarks).max(axis=1) - np.hstack(history.landmarks).min(axis=1)]).max()
+
+    mid_x = (camera_positions[:, 0].max() + camera_positions[:, 0].min()) / 2
+    mid_y = (camera_positions[:, 1].max() + camera_positions[:, 1].min()) / 2
+    mid_z = (camera_positions[:, 2].max() + camera_positions[:, 2].min()) / 2
+
+    fig.update_layout(
+        title="3D Landmarks by Frame (Different Colors)",
+        scene=dict(
+            xaxis=dict(range=[mid_x - max_range/2, mid_x + max_range/2], autorange=False),
+            yaxis=dict(range=[mid_y - max_range/2, mid_y + max_range/2], autorange=False),
+            zaxis=dict(range=[mid_z - max_range/2, mid_z + max_range/2], autorange=False),
+
+            xaxis_title='X',
+            yaxis_title='Y',
+            zaxis_title='Z',
+            camera=camera,
+            aspectmode='cube',
+        ),
+        width=900,
+        height=700
+    )
+    # Save or show
+    if save_html:
+        file_name = f"output/trajectory_and_landmarks_{len(history.camera_position):06}.html"
+        fig.write_html(file_name)
+        print(f"Saved interactive 3D plot to {file_name}")
+    else:
+        fig.show()
