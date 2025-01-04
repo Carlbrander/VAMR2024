@@ -233,7 +233,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         RMS = 0
         is_benchmark = True
 
-        if i % 200 == 0:
+        if i % 200 == 0 or i == args.last_frame:
             plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
         
         #update previous image
