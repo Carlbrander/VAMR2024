@@ -190,11 +190,11 @@ class Plotter:
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     
-        #plot previous keypoints in yellow
-        for keypoints_from_history in keypoints_history[max(-10, -len(keypoints_history)):-1]:
-            for kp in keypoints_from_history.T:
-                center = tuple(kp.astype(int))
-                cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
+        # #plot previous keypoints in yellow
+        # for keypoints_from_history in keypoints_history[max(-10, -len(keypoints_history)):-1]:
+        #     for kp in keypoints_from_history.T:
+        #         center = tuple(kp.astype(int))
+        #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
      
         #plot current keypoints blue
         for keypoints_from_history in keypoints_history[-1].T:
