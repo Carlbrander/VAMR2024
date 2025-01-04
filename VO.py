@@ -1,11 +1,7 @@
 import cv2
 import numpy as np
 
-
-
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
-from bootstrapping_utils.exercise_3.harris import harris
-from bootstrapping_utils.exercise_3.select_keypoints import selectKeypoints
 from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
 from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
 
@@ -63,8 +59,7 @@ class VisualOdometry:
             gray = image
 
         if not self.use_sift:
-            #harris_scores = harris(gray, self.corner_patch_size, self.harris_kappa)
-            #keypoints = selectKeypoints(harris_scores, num_keypoints, nonmaximum_suppression_radius)
+            # Detect keypoints using Shi-Tomasi
             keypoints = cv2.goodFeaturesToTrack(gray, maxCorners = 800,
                                     qualityLevel = 0.01,
                                     minDistance = 7,
@@ -291,14 +286,36 @@ class VisualOdometry:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         #use KLT to track existing keypoint in this new image
-        keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
-        prev_image,
-        image,
-        keypoints_0.T.astype(np.float32),
-        None,
-        winSize=(18, 18),
-        maxLevel=8,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.001))
+        if self.ds == 0:
+            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
+            prev_image,
+            image,
+            keypoints_0.T.astype(np.float32),
+            None,
+            winSize=(18, 18),
+            maxLevel=8,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.5))
+
+        if self.ds == 1:
+            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
+            prev_image,
+            image,
+            keypoints_0.T.astype(np.float32),
+            None,
+            winSize=(18, 18),
+            maxLevel=8,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.001))
+
+        elif self.ds == 2:
+            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
+            prev_image,
+            image,
+            keypoints_0.T.astype(np.float32),
+            None,
+            winSize=(9, 9),
+            maxLevel=8,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.5))
+
 
 
         
@@ -442,7 +459,7 @@ class VisualOdometry:
                 candidate[6] = np.delete(candidate[6], to_delete_index, axis=1)
 
 
-                history.texts.append(f"Average angle for candidate {candidate_i}: {round(np.mean(angles),4)} std:  {round(np.std(angles),4)}, max: {round(np.max(angles),4)}, added: {len(to_delete_index)}, Nr. of elements after: {len(angles)}, baseline: {baseline}")
+                history.texts.append(f"Candidate Nr. {candidate[7]}: mean angle: {round(np.mean(angles),4)} std:  {round(np.std(angles),4)}, max: {round(np.max(angles),4)}, added: {len(to_delete_index)}, Nr. of elements after: {len(angles)}, baseline: {baseline}")
 
         # Convert lists to numpy arrays
         new_keypoints = np.array(new_keypoints).T
@@ -547,11 +564,11 @@ class VisualOdometry:
         #### Them in the hidden state for later.
 
 
-        if landmarks_1.shape[1] > 500:
-            return keypoints_1, landmarks_1, descriptors_1, Hidden_state, np.array([]), np.array([]), np.array([])
+        #if landmarks_1.shape[1] > 500:
+        #    return keypoints_1, landmarks_1, descriptors_1, Hidden_state, np.array([]), np.array([]), np.array([])
         
-        elif landmarks_1.shape[1] <= 500:
-            self.landmarks_allowed = 3000#500 - landmarks_1.shape[1]
+        #elif landmarks_1.shape[1] <= 500:
+        self.landmarks_allowed = 3000#500 - landmarks_1.shape[1]
 
 
 
