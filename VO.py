@@ -259,14 +259,15 @@ class VisualOdometry:
 
         #use KLT to track existing keypoint in this new image
         keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
-        prev_image,
-        image,
-        keypoints_0.T.astype(np.float32),
-        None,
-        winSize=(21, 21),
-        maxLevel=3,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01))
-        
+            prev_image,
+            image,
+            keypoints_0.T.astype(np.float32),
+            None,
+            winSize=(15, 15),
+            maxLevel=2,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.01),
+        )
+    
         # Select good points
         st_here = st.reshape(-1)
         #get new keypoints
@@ -281,7 +282,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-20:-1]:
+            for candidate in Hidden_state[-2:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -335,7 +336,7 @@ class VisualOdometry:
 
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[-20:-1]:
+        for candidate in Hidden_state[-2:-1]:
             if len(candidate) == 0:
                 continue
 
@@ -372,7 +373,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-20:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[-2:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -461,7 +462,7 @@ class VisualOdometry:
 
 
         #define a threshold for the distance between keypoints
-        threshold = 0.0 #in meters
+        threshold = 0.3 #in meters
 
         #initialize a list to store the indices of the keypoints to keep
         indices_to_keep = []
@@ -900,12 +901,12 @@ class VisualOdometry:
             history.texts.append(f"Number of new Landmarks after removing the negatives: {triangulated_landmarks.shape[1]}")
         else:
             history.texts.append("Number of new Landmarks after removing the negatives: is zero")
-        # ### Spatial Non Maximum Suppression between within new and old Landmarks ###
-        # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
-        # if len(triangulated_landmarks) > 0:
-        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
-        # else:
-        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
+        ### Spatial Non Maximum Suppression between within new and old Landmarks ###
+        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
+        if len(triangulated_landmarks) > 0:
+            history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
+        else:
+            history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
 
         # ### Statistical Filtering of new Landmarks ###
         # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
@@ -957,7 +958,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[-20:-1]:
+        for candidate in Hidden_state[:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)

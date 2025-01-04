@@ -24,7 +24,7 @@ def parse_arguments():
     args.corner_patch_size = 9
     args.harris_kappa = 0.08
     args.num_keypoints = 1000
-    args.nonmaximum_supression_radius = 20
+    args.nonmaximum_supression_radius = 5
     args.descriptor_radius = 9
     args.match_lambda = 4
     args.use_BA = False
