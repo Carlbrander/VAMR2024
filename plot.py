@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import platform
 import textwrap
+import os
+import glob
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
@@ -37,20 +39,9 @@ class Plotter:
         self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
         color = 'green' if is_benchmark else 'black'
         self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
-        
-        # Draw the pause button
-        pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
-        self.pause_button = Button(pause_button_ax, 'Pause/Resume')
-        self.pause_button.on_clicked(self.toggle_pause)
 
-        self.fig.canvas.draw()
-        plt.show(block=False)
-        plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
-
-        # Pause loop
-        while self.paused[0]:
-            plt.pause(0.1)
+        # Save the figure
+        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)), bbox_inches='tight')
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
         ax_3d = self.fig.add_subplot(231)
@@ -258,7 +249,6 @@ class Plotter:
         ax_4.set_title('Line Graph')
         ax_4.legend(loc='lower left')
 
-
     def plot_text(self, img, history, current_iteration):
         ax = self.fig.add_subplot(233)
         # ax = self.fig.add_subplot(236)
@@ -353,3 +343,35 @@ def wrap_text(text, width, subsequent_indent='    '):
     """Wrap text to fit within a specified width with indentation for subsequent lines."""
     wrapper = textwrap.TextWrapper(width=width, subsequent_indent=subsequent_indent)
     return '\n'.join(wrapper.wrap(text))
+
+def main():
+
+    # Define the path to the output images
+    image_folder = './output'
+    video_name = 'output_video.avi'
+
+    # Get all the image files in the output folder
+    images = sorted(glob.glob(os.path.join(image_folder, 'output_*.png')))
+
+    # Check if there are any images to process
+    if not images:
+        print("No images found in the output folder.")
+        return
+
+    # Read the first image to get the dimensions
+    frame = cv2.imread(images[0])
+    height, width, layers = frame.shape
+
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    video = cv2.VideoWriter(video_name, fourcc, 1, (width, height))
+
+    for image in images:
+        video.write(cv2.imread(image))
+
+    # Release the video writer
+    video.release()
+    print(f"Video saved as {video_name}")
+
+if __name__ == "__main__":
+    main()

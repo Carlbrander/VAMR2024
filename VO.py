@@ -18,7 +18,7 @@ np.random.seed(1)
 
 class VisualOdometry:
 
-    def __init__(self, args):
+    def __init__(self,args, keypoints, landmarks, descriptors, R, t):
         """
         Initialize the Visual Odometry system with basic components
         """
@@ -33,7 +33,17 @@ class VisualOdometry:
         self.K = args.K
         self.threshold_angle = args.threshold_angle
         self.min_baseline = args.min_baseline
-
+        self.X = landmarks # landmarks in world coordinates
+        self.X_num = np.size(self.X, 1) # number of landmarks
+        self.C = np.empty((2, 0)) # camera poses
+        self.C_num = 0 #np.size(self.C, 1) # number of landmarks
+        self.F = np.empty((2, 0)) # Initial keypoints that are tracked but not triangulated
+        self.T = np.empty((12, 0))  # 12, weil R_1.flatten() 9 Elemente und t_1.flatten() 3 Elemente hat
+        self.est_trans = np.array(t.flatten()) # estimated translations
+        self.est_rot = np.array(R.flatten()) # estimated rotations
+        self.num_new = 0 # number of new landmarks
+        self.min_depth = 2 
+        self.max_depth = 50
         self.use_sift = args.use_sift
 
         #internal image counter
@@ -451,7 +461,7 @@ class VisualOdometry:
 
         return list(removal_index)
 
-    def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1, descriptors_1):
+    def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1):
         
 
 
@@ -774,7 +784,7 @@ class VisualOdometry:
 
         return optimized_R, optimized_t, optimized_landmarks_current, updated_keypoints, updated_descriptors, history.landmarks
 
-    def add_new_landmarks(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history):
+    def add_new_landmarks(self, keypoints_1, landmarks_1, R_1, t_1, Hidden_state, history):
         # history.texts.append(f"landmarks_1.shape: {landmarks_1.shape}")
 
         ### Detect new Keypoints ###
@@ -795,8 +805,13 @@ class VisualOdometry:
         history.texts.append(f"Number of freshly Detected Keypoints: {new_keypoints.shape[1]}")
 
 
+        # Append all new keypoints to self.T
+        new_T = np.tile(np.hstack((R_1.flatten(), t_1.flatten())), (new_keypoints.shape[1], 1)).T
+        self.T = np.hstack((self.T, new_T))
 
-
+        # 
+        self.C = np.hstack((self.C, new_keypoints))
+        self.F = np.hstack((self.F, new_keypoints))
 
 
         #remove_indices = []
@@ -883,7 +898,7 @@ class VisualOdometry:
         if Hidden_state and Hidden_state[-1][0].shape[1] < 4:
             history.texts.append(f"Not enough keypoints to triangulate, removing newest Hidden State; keypoints_1.shape: {keypoints_1.shape}")
             Hidden_state.pop()
-            return keypoints_1, landmarks_1, descriptors_1, Hidden_state, None, None, None
+            return keypoints_1, landmarks_1, Hidden_state, None, None, None
         
       
         ### Triangulate new Landmarks ###
@@ -902,7 +917,7 @@ class VisualOdometry:
         else:
             history.texts.append("Number of new Landmarks after removing the negatives: is zero")
         ### Spatial Non Maximum Suppression between within new and old Landmarks ###
-        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
+        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1)
         if len(triangulated_landmarks) > 0:
             history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
         else:
@@ -917,7 +932,7 @@ class VisualOdometry:
             history.texts.append(f"Number of the triangulated_landmarks after statistical_filtering: is zero")
         
         if triangulated_landmarks.size == 0:
-            return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
+            return keypoints_1, landmarks_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
         # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
@@ -944,13 +959,12 @@ class VisualOdometry:
 
         landmarks_2 = np.hstack((landmarks_1, triangulated_landmarks))
         keypoints_2 = np.hstack((keypoints_1, triangulated_keypoints))
-        descriptors_2 = np.hstack((descriptors_1, triangulated_descriptors))
 
         history.texts.append(f"keypoints_2.shape at the end of add_new_landmarks: {keypoints_2.shape}")
         
-        return keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
+        return keypoints_2, landmarks_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, new_keypoints
 
-    def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1):
+    def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, R_1, t_1):
 
         #Adapt the number of keypoints to detect dynamically based on the number of keypoints in the hidden state
         
@@ -985,7 +999,8 @@ class VisualOdometry:
         if not self.use_sift:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
-            self.threshold_angle = 0.0001#round(max(0.001, landmarks_1.shape[1] / 18000), 2)
+
+            self.threshold_angle = round(max(0.001, landmarks_1.shape[1] / 18000), 4)
             print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
@@ -1042,8 +1057,138 @@ class VisualOdometry:
 
 
         return landmarks_positive, keypoints_positive, descriptors_positive
+    def update_landmarks(self, B, KLT_tracker_C, image, K, hyper_paras, prev_image, keypoints_0, new_keypoints):
+        """
+        Python equivalent of the MATLAB function update_landmarks(S,B,KLT_tracker_C,image,K,hyper_paras)
+        where `S` in MATLAB is replaced by `self` in Python.
+        """
 
-    def process_image(self, prev_image, image, keypoints_0, landmarks_0, descriptors_0, R_0, t_0, Hidden_state, history):
+        # --- Extract rotation and translation ---
+        R_W_C = self.est_rot[-1, :].reshape((3, 3))
+        t_W_C = self.est_trans[-1,:].reshape((3, 1))
+        T_W_C = np.vstack((np.hstack((R_W_C, t_W_C)),
+                            np.array([0, 0, 0, 1])))
+
+        R_C_W = R_W_C.T
+        t_C_W = -R_C_W @ t_W_C
+
+        # --- Track points via KLT ---
+        matched_points_candidate, validity_candidate = self.track_keypoints(prev_image, image, self.C)
+        validity_candidate = validity_candidate.reshape(-1)
+        #remove keypoints that are not tracked
+        matched_points_valid_candidate = self.C[:, validity_candidate == 1]
+
+        # --- Estimate fundamental matrix; get inliers (placeholder) ---
+        # Replace with a real fundamental matrix estimation if needed, e.g. using OpenCV.
+        # Here we just assume estimateFundamentalMatrix returns an inlier mask in inliersIndex.
+        # E.g. with OpenCV: F, mask = cv2.findFundamentalMat(...)
+        # For brevity, we treat `validity_candidate` as a boolean array and `inliersIndex` likewise.
+        # ----------------------------------------------------------------
+        # Pseudocode for fundamental matrix estimation:
+        # F, mask = cv2.findFundamentalMat(
+        #     self.C[:, validity_candidate].T,
+        #     matched_points_valid_candidate,
+        #     cv2.FM_RANSAC, 0.05, 0.99, 500
+        # )
+        # inliersIndex = mask.ravel().astype(bool)
+        # ----------------------------------------------------------------
+        # Here we'll just pretend all are inliers:
+        inliersIndex = np.ones(matched_points_valid_candidate.shape[1], dtype=bool)
+
+        # Update self.F, self.T with inliers
+        self.F = self.F[:, validity_candidate == 1]
+        self.F = self.F[:, inliersIndex == 1]
+        self.T = self.T[:, validity_candidate == 1]
+        self.T = self.T[:, inliersIndex == 1]
+
+        # --- Calculate angles ---
+        num_candidate = matched_points_valid_candidate.shape[1]
+        # p_current_homo in shape (3, num_candidate): (u, v, 1) but note
+        # matched_points_valid_candidate is (row, col). We flip again to (u, v).
+        p_current_homo = np.vstack((matched_points_valid_candidate, np.ones((1, num_candidate))))
+        p_current_normalized_homo = np.linalg.inv(K) @ p_current_homo
+
+        p_first_normalized_homo = np.zeros_like(p_current_normalized_homo)
+        for i in range(num_candidate):
+            # Reshape T[:, i] into a 3x4, then make it a 4x4
+            T_3x4_first = np.hstack((self.T[:9, i].reshape((3, 3)), self.T[9:, i].reshape((3, 1))))
+            T_W_C_first = np.vstack((T_3x4_first, [0, 0, 0, 1]))
+
+            T_C_Cf = np.linalg.inv(T_W_C) @ T_W_C_first
+
+            # The original code does flipud(S.F(:,i)) => (S.F(2,i), S.F(1,i))
+            # Then multiply by inv(K) and then by T_C_Cf(1:3,1:3).
+            f_flipped = np.flipud(self.F[:, i])  # (2,1)->(1,2) in MATLAB => here [F[1,i], F[0,i]]
+            tmp_vec = np.linalg.inv(K) @ np.concatenate((f_flipped, [1]))
+            p_first_normalized_homo[:, i] = T_C_Cf[:3, :3] @ tmp_vec
+
+        dot_product = np.sum(p_current_normalized_homo * p_first_normalized_homo, axis=0)
+        norms = (np.linalg.norm(p_current_normalized_homo, axis=0) *
+                    np.linalg.norm(p_first_normalized_homo, axis=0))
+        angles = np.degrees(np.arccos(dot_product / norms))
+        whehter_append = angles > np.degrees(self.threshold_angle)
+
+        # --- Append new landmarks for points whose angle is large enough ---
+        num_added = np.sum(whehter_append)
+
+        p_first = np.vstack((
+            np.flipud(self.F[:, whehter_append]),
+            np.ones((1, num_added))
+        ))
+        T_vec_first = self.T[:, whehter_append]
+        p_current = p_current_homo[:, whehter_append]
+        M_current_C_W = K @ np.hstack((R_C_W, t_C_W.reshape(3, 1)))
+
+        for ii in range(num_added):
+            T_3x4_first = T_vec_first[:, ii].reshape((3, 4))
+            T_W_C_first = np.vstack((T_3x4_first, [0, 0, 0, 1]))
+            T_C_first_W = np.linalg.inv(T_W_C_first)
+            M_first_C_W = K @ T_C_first_W[:3, :]
+
+            p_current_2d = p_current[:2, ii].reshape(2, 1)
+            p_first_2d = p_first[:2, ii].reshape(2, 1)
+
+            P_est = cv2.triangulatePoints(
+                M_current_C_W,
+                M_first_C_W,
+                p_current_2d,       # (3,) -> (u, v, 1)
+                p_first_2d          # (3,) -> (u, v, 1)
+                )
+            P_est = P_est / P_est[3]
+            
+            # Reprojection checks (optional)
+            reproj1 = M_current_C_W @ P_est
+            reproj1 = reproj1 / reproj1[2]
+            reproj2 = M_first_C_W @ P_est
+            reproj2 = reproj2 / reproj2[2]
+
+            # Check if point is in front of the camera and within depth limits
+            P_est_local_coord = np.linalg.inv(T_W_C) @ P_est
+            if (abs(P_est_local_coord[2]) > self.min_depth and 
+                abs(P_est_local_coord[2]) < self.max_depth):
+                # Append to self.X
+                self.X = np.hstack((
+                    self.X, P_est[:3]))
+
+                # Append to self.P => (row, col) in the same way MATLAB did
+                # The original code does: S.P = [S.P, [p_current(2,ii); p_current(1,ii)]]
+                # which is (u,v)->(row, col) flipping again.
+                self.P = np.hstack((
+                    self.P,
+                    np.array([p_current[1, ii], p_current[0, ii]]).reshape((-1, 1))
+                ))
+
+        # --- Update state (remove appended from tracking) ---
+        # In Python, whehter_append is a boolean array of shape (num_candidate,).
+        # We want those *not* appended, so we do ~whehter_append:
+        keep_idx = ~whehter_append
+
+        self.C = matched_points_valid_candidate[:, keep_idx == 1]
+        self.F = self.F[:, keep_idx == 1]
+        self.T = self.T[:, keep_idx == 1]
+        self.num_new = np.append(self.num_new, num_added)
+
+    def process_image(self, prev_image, image, keypoints_0, landmarks_0, R_0, t_0, Hidden_state, history):
 
         self.image = image
         self.prev_image = prev_image
@@ -1055,7 +1200,7 @@ class VisualOdometry:
         st = st.reshape(-1)
         #remove keypoints that are not tracked
         landmarks_1 = landmarks_0[:, st == 1]
-        descriptors_1 = descriptors_0[:, st == 1]
+        # descriptors_1 = descriptors_0[:, st == 1]
         history.texts.append(f"-4. landmarks_1.shape after track_keypoints : {landmarks_1.shape}")
 
         ###estimate motion using PnP###
@@ -1065,32 +1210,36 @@ class VisualOdometry:
         keypoints_1 = keypoints_1[:, inliers]
         landmarks_1 = landmarks_1[:, inliers]
         history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
-        descriptors_1 = descriptors_1[:, inliers]
+        # descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
+
+        ## Save to state
+        self.P = keypoints_1
+        self.X = landmarks_1
+        self.est_trans = np.vstack((self.est_trans, t_1.flatten()))
+        self.est_rot = np.vstack((self.est_rot, R_1.flatten()))
 
         ###Triangulate new Landmarks###
 
         # Adapt Parameter for Landmark Detection dynamically #
-        self.adapt_parameters(Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1)
+        self.adapt_parameters(Hidden_state, keypoints_1, landmarks_1, R_1, t_1)
         history.texts.append(f"-2. self.num_keypoints: {self.num_keypoints}")
         history.texts.append(f"-1. self.threshold_angle: {self.threshold_angle}")
 
-        keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors = \
-            self.add_new_landmarks(keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history)
+        keypoints_2, landmarks_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, new_keypoints = self.add_new_landmarks(keypoints_1, landmarks_1, R_1, t_1, Hidden_state, history)
 
-
+        if self.C.size != 0:
+            self.update_landmarks(0, 0, image, self.K, 0, prev_image, keypoints_2, new_keypoints)
 
         #keeping this in case we want to fix the bundle adjustment
         R_2 = R_1
         t_2 = t_1
         landmarks_3 = landmarks_2
-        keypoints_3 = keypoints_2
-        descriptors_3 = descriptors_2
-     
+        keypoints_3 = keypoints_2        
 
         ###Update History###
-        history.keypoints.append(keypoints_3)
-        history.landmarks.append(landmarks_3)
+        history.keypoints.append(self.P)
+        history.landmarks.append(self.X)
         history.R.append(R_2)
         history.t.append(t_2)
         
@@ -1098,7 +1247,7 @@ class VisualOdometry:
         history.triangulated_keypoints.append(triangulated_keypoints)
         history.threshold_angles.append(self.threshold_angle)
         history.num_keypoints.append(self.num_keypoints)
-       
+        
         #This is only for the line plot plotting:
         history.Hidden_states = Hidden_state
 
@@ -1123,7 +1272,7 @@ class VisualOdometry:
 
 
 
-        return keypoints_3, landmarks_3, descriptors_3, R_2, t_2, Hidden_state, history
+        return self.P, self.X, R_2, t_2, Hidden_state, history
 
 
 def plot_2d(img, history):
@@ -1157,7 +1306,6 @@ def plot_2d(img, history):
     plt.axis('off')
     plt.savefig(f"output/debug_plot2d_{len(history.camera_position):06}.png")
     plt.close()
-
 
 def plot_trajectory_and_landmarks(history):
     """
@@ -1202,7 +1350,6 @@ def plot_trajectory_and_landmarks(history):
     plt.tight_layout()
     plt.savefig(f"output/trajectory_and_landmarks_{len(history.camera_position):06}.png")
     plt.close()
-
 
 def compute_reprojection_errors(
     R, t, K, landmarks_3d, keypoints_2d
@@ -1259,7 +1406,6 @@ def check_reprojection_for_current_frame(R_1, t_1, K, landmarks_3d, keypoints_2d
     # Optional: print mean or max error
     print(f"[Frame {frame_id}] Mean reprojection error: {np.mean(errors):.2f} px, "
           f"Max error: {np.max(errors):.2f} px")
-
 
 def plot_trajectory_and_landmarks_3d(history, save_html=True):
     """

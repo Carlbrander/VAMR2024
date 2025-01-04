@@ -15,7 +15,7 @@ from benchmark import Benchmarker
 def parse_arguments():
     # Parse arguments
     parser = ArgumentParser()
-    parser.add_argument("--ds", type=int, default=0, help="Dataset to use. Options: 0: KITTI, 1: Malaga, 2: parking")
+    parser.add_argument("--ds", type=int, default=2, help="Dataset to use. Options: 0: KITTI, 1: Malaga, 2: parking")
     parser.add_argument("--use_sift", type=bool, default=True, help="Use SIFT instead of Harris")
     args = parser.parse_args()
 
@@ -32,7 +32,7 @@ def parse_arguments():
     args.max_depth = 100
 
 
-    args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
+    args.threshold_angle = 0.087 # only for the start anyway, adapted dynamically
     args.min_baseline = 0.0 # only for the start anyway, adapted dynamically
 
     return args
@@ -210,7 +210,7 @@ def getScale(gt_camera_position, t):
 def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history):
 
     prev_img = args.img1
-    vo = VisualOdometry(args)
+    vo = VisualOdometry(args, keypoints, landmarks, descriptors, R, t)
     
     benchmarker = Benchmarker(args.gt_camera_position, args.ds)
     plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames)
@@ -227,7 +227,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         
         image = load_image(args.ds, i, args)
 
-        keypoints, landmarks, descriptors, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, descriptors, R, t, Hidden_state, history)
+        keypoints, landmarks, R, t, Hidden_state, history = vo.process_image(prev_img, image, keypoints, landmarks, R, t, Hidden_state, history)
         
         # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
         RMS = 0
