@@ -425,32 +425,82 @@ class VisualOdometry:
         return angle
 
     def NMS_on_keypoints(self, new_keypoints, old_keypoints, radius):
+        """
+        Removes new keypoints that are closer than `radius`
+        to any old keypoint or to any other new keypoint.
 
+        Args:
+            new_keypoints (np.ndarray): shape (2, N) or (N, 2)
+            old_keypoints (np.ndarray): shape (2, M) or (M, 2)
+            radius (float): distance threshold in pixel coordinates
 
-        removal_index = set()
+        Returns:
+            removal_indices (list): list of indices of new_keypoints to be removed
+        """
 
-        # Loop over each new keypoint
-        for i in range(new_keypoints.shape[1]):
+        # 1) Ensure consistent shape: we'll make both = (N, 2)
+        if new_keypoints.shape[0] == 2 and new_keypoints.shape[1] > 1:
+            new_keypoints = new_keypoints.T  # => (N, 2)
+        if old_keypoints.shape[0] == 2 and old_keypoints.shape[1] > 1:
+            old_keypoints = old_keypoints.T  # => (M, 2)
 
-            # Check distance to old_keypoints
-            # TODO: pass here all of the detected keypoints instead of only limited new ones
-            for j in range(old_keypoints.shape[1]):
-                dist_old = np.linalg.norm(new_keypoints[:, i] - old_keypoints[:, j])
-                if dist_old < radius:
-                    removal_index.add(i)
-                    break
-            else:
-                # Only check new_keypoints if not removed by old_keypoints
-                # TODO: this should already be done in the NMS after keypoint detection
-                for j in range(new_keypoints.shape[1]):
-                    if i == j:
-                        continue
-                    dist_new = np.linalg.norm(new_keypoints[:, i] - new_keypoints[:, j])
-                    if dist_new < radius:
-                        removal_index.add(i)
+        N = new_keypoints.shape[0]
+        M = old_keypoints.shape[0]
+
+        # Edge cases
+        if N == 0:
+            return []
+        if M == 0 and N == 1:
+            # Only 1 new point, no old points, so keep it
+            return []
+
+        # 2) Distances between each new point and each old point
+        #    shape => (N, M)
+        # cdist is convenient, but we can also manually broadcast:
+        #     (N,1,2) - (1,M,2) => (N,M,2) => norm => (N,M)
+        new_expanded = new_keypoints[:, np.newaxis, :]  # shape (N,1,2)
+        old_expanded = old_keypoints[np.newaxis, :, :]  # shape (1,M,2)
+        dist_new_old = np.linalg.norm(new_expanded - old_expanded, axis=2)  # shape (N,M)
+
+        # 3) For each new point i, find min distance to any old point
+        #    => shape (N,)
+        min_dist_to_old = dist_new_old.min(axis=1)
+
+        # 4) We'll mark as "removal" any point i that is within radius of an old point
+        remove_mask = (min_dist_to_old < radius)
+
+        # 5) Next, check new-to-new distances among themselves:
+        #    shape => (N,N) but diagonal = 0 => we can ignore diagonal
+        # Use the same broadcast approach:
+        dist_new_new = np.linalg.norm(
+            new_expanded - new_expanded.transpose((1,0,2)),
+            axis=2
+        )  # shape (N,N)
+
+        # We only need the upper triangle (or lower) to avoid double counting i-j vs j-i
+        # But let's keep it simple:
+        #    if dist_new_new[i, j] < radius and i != j => remove either i or j
+        # Typically, you'd remove i or j or the "lower-scored" one, but here let's match your approach:
+        #   "If new point i is within radius of any new point j that has index j < i,
+        #    remove i."
+
+        for i in range(N):
+            if remove_mask[i]:
+                # Already marked for removal
+                continue
+            # Check distances to all j != i
+            # We'll only check j < i to replicate the "else" logic from your code
+            # (i.e. if i wasn't removed by old_keypoints, THEN we check i's distance to j).
+            for j in range(i):
+                if not remove_mask[j]:  # j is still valid
+                    if dist_new_new[i, j] < radius:
+                        remove_mask[i] = True
                         break
 
-        return list(removal_index)
+        # 6) Convert mask to a list of indices
+        removal_indices = np.where(remove_mask)[0].tolist()
+
+        return removal_indices
 
     def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1, descriptors_1):
         
