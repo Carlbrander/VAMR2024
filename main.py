@@ -11,29 +11,43 @@ import matplotlib.pyplot as plt
 
 from plot import Plotter
 from benchmark import Benchmarker
+from tqdm import tqdm
+
+
+def str2bool(v):
+
+    return v.lower() in ("yes", "true", "t", "1")
+
+
 
 def parse_arguments():
     # Parse arguments
     parser = ArgumentParser()
     parser.add_argument("--ds", type=int, default=0, help="Dataset to use. Options: 0: KITTI, 1: Malaga, 2: parking")
-    parser.add_argument("--use_sift", type=bool, default=True, help="Use SIFT instead of Harris")
+    parser.add_argument("--use_sift", type=str2bool, default=True, help="Use SIFT instead of Harris")
+    parser.add_argument("--visualize_dashboard", type=str2bool, default=True, help="Visualize dashboard")
+    parser.add_argument("--visualize_every_nth_frame", type=int, default=1, help="Visualize dashboard every nth frame")
     args = parser.parse_args()
 
 
     #harris detector parameters (from exercise 3)
     args.corner_patch_size = 9
     args.harris_kappa = 0.08
-    args.num_keypoints = 1000
-    args.nonmaximum_supression_radius = 5
+    args.nonmaximum_supression_radius = 8
     args.descriptor_radius = 9
     args.match_lambda = 4
     args.use_BA = False
     args.use_pose_refinement = False
-    args.max_depth = 100
 
+    if args.ds == 0:
+        args.threshold_angle = 0.03
+    elif args.ds == 1:
+        args.threshold_angle = 0.01
+    elif args.ds == 2:
+        args.threshold_angle = 0.001
 
-    args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
-    args.min_baseline = 0.0 # only for the start anyway, adapted dynamically
+    args.min_baseline = 0.4
+    args.num_keypoints = 800
 
     return args
 
@@ -140,7 +154,7 @@ def dataset_setup(args):
         img1 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[1]])), cv2.COLOR_BGR2GRAY)
         args.malaga_path = malaga_path
     elif ds == 2:
-        bootstrap_frames = [0, 2]
+        bootstrap_frames = [0, 10]
         img0 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[0]:05d}.png')), cv2.COLOR_BGR2GRAY)
         img1 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[1]:05d}.png')), cv2.COLOR_BGR2GRAY)
         args.parking_path = parking_path
@@ -213,17 +227,16 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
     vo = VisualOdometry(args)
     
     benchmarker = Benchmarker(args.gt_camera_position, args.ds)
-    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames)
+    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames, args)
 
     Hidden_state = []
   
     # Continuous operation
-    for i in range(args.bootstrap_frames[1] + 1, args.last_frame + 1):
+    for i in tqdm(range(args.bootstrap_frames[1] + 1, args.last_frame + 1)):
         history.texts = []
-        # if i < 120:
-        #     continue
+      
 
-        print(f'\n\nProcessing frame {i}\n=====================')
+        #yprint(f'\n\nProcessing frame {i}\n=====================')
         
         image = load_image(args.ds, i, args)
 
@@ -232,7 +245,8 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
         RMS = 0
         is_benchmark = True
-        plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
+        if args.visualize_every_nth_frame > 0 and i % args.visualize_every_nth_frame == 0:
+            plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
         
         #update previous image
         prev_img = image
@@ -257,20 +271,24 @@ if __name__ == "__main__":
     args = dataset_setup(args)
 
     #Bootstrapping
+    
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
-    scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
-    args.gt_camera_position = []
-    offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
-    for i in range(len(args.gt_t)):
-        # t_new = -R @ t
-        args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
-        args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
+    if args.ds != 1:
+        scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
+        args.gt_camera_position = []
+        offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
+        for i in range(len(args.gt_t)):
+            # t_new = -R @ t
+            args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
+            args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
 
-    args.gt_camera_position = args.gt_camera_position/scale
+        args.gt_camera_position = args.gt_camera_position/scale
 
 
     #Initialize History
     history = History(keypoints, landmarks, R, t)
+
+    print("===== Using SIFT =====" if args.use_sift else "===== Using Harris =====")
     
 
     #Continuous Operation

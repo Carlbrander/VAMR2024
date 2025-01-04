@@ -7,7 +7,6 @@ from bootstrapping_utils.exercise_3.harris import harris
 from bootstrapping_utils.exercise_3.select_keypoints import selectKeypoints
 from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
 from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
-from bootstrapping_utils.exercise_3.plot_matches import plotMatches
 
 def plot_3d_bootstrapping(points_3d, R, t):
 
@@ -79,11 +78,11 @@ def bootstrapping(args):
     if not args.use_sift:
         #get keypoints of both images using 
         harris_scores_0 = harris(img0, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
-        keypoints_0 = selectKeypoints(harris_scores_0, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
+        keypoints_0 = selectKeypoints(harris_scores_0, 2*args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
         descriptors_0 = describeKeypoints(img0, keypoints_0, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
 
         harris_scores_1 = harris(img1, args.corner_patch_size, args.harris_kappa) #returns [H,W] array of harris scores
-        keypoints_1 = selectKeypoints(harris_scores_1, args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
+        keypoints_1 = selectKeypoints(harris_scores_1, 2*args.num_keypoints, args.nonmaximum_supression_radius) #returns [2,N] array of keypoints
         descriptors_1 = describeKeypoints(img1, keypoints_1, args.descriptor_radius) #returns [(2*r+1)**2,N] array of descriptors
 
         matches = matchDescriptors(descriptors_1, descriptors_0, args.match_lambda)
@@ -104,9 +103,12 @@ def bootstrapping(args):
         keypoints_0, descriptors_0 = sift.detectAndCompute(img0, None)
         keypoints_1, descriptors_1 = sift.detectAndCompute(img1, None)
 
+  
         # Match descriptors
         bf = cv2.BFMatcher()
         matches = bf.knnMatch(descriptors_0, descriptors_1, k=2)
+
+        
 
         # Apply ratio test
         good = []
@@ -121,10 +123,8 @@ def bootstrapping(args):
         # Get matched descriptors
         matched_descriptors_1 = np.array([descriptors_1[match.trainIdx] for match in good]).T
 
-     
-    #plot matches
-    #plot_2d_bootstrapping(img0, img1, matched_keypoints_0_xy, matched_keypoints_1_xy, "Matched Keypoints")
-
+       
+  
 
     #Estimate the essential matrix E using the 8-point algorithm with strict threshold of 1 pixel and 99.9% confidence
     # Set the random seed for reproducibility

@@ -6,7 +6,7 @@ import platform
 import textwrap
 
 class Plotter:
-    def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
+    def __init__(self, camera_positions, camera_position_bm, bootstrap_frames,args):
         self.fig = plt.figure(figsize=(18, 10))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
@@ -15,11 +15,14 @@ class Plotter:
         self.camera_position_bm = camera_position_bm
         self.bootstrap_frames = bootstrap_frames
         self.i = 0
+        self.visualize_dashboard_1 = args.visualize_dashboard
+        self.visualize_every_nth_frame = args.visualize_every_nth_frame
 
         # Pause logic
         self.paused = [False]
 
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
+        
         # Clear the figure to update it
         self.fig.clf()
         self.i = current_iteration
@@ -30,7 +33,7 @@ class Plotter:
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
         self.plot_text(img, history, current_iteration)
-        self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        #self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -44,9 +47,13 @@ class Plotter:
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        plt.show(block=False)
-        plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        if self.visualize_dashboard_1:
+            plt.show(block=False)
+            plt.pause(0.00000000001)
+            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        else:
+            
+            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop
         while self.paused[0]:
@@ -133,7 +140,7 @@ class Plotter:
         ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
 
         #plot triangulated landmarks in red
-        if triangulated_landmarks.size != 0:
+        if isinstance(triangulated_landmarks, np.ndarray) and triangulated_landmarks.size != 0:
             ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
 
 
