@@ -1064,6 +1064,65 @@ class VisualOdometry:
             self.threshold_angle = 0.0001#round(max(0.001, landmarks_1.shape[1] / 18000), 2)
             # print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
+
+    def filter_keypoints_via_fundamental_ransac(
+        self,
+        keypoints_0, 
+        keypoints_1, 
+        ransacReprojThreshold=1.0, 
+        confidence=0.99, 
+        maxIters=2000
+    ):
+        """
+        Filters matched 2D keypoints using a fundamental-matrix RANSAC step,
+        mimicking estimateFundamentalMatrix in MATLAB.
+
+        Args:
+            keypoints_0 (np.ndarray): Shape (2, N). Keypoints in the first image (row, col) or (x, y).
+            keypoints_1 (np.ndarray): Shape (2, N). Corresponding keypoints in the second image.
+            ransacReprojThreshold (float): RANSAC distance threshold in pixels (or normalized coords).
+            confidence (float): RANSAC confidence.
+            maxIters (int): Maximum RANSAC iterations.
+
+        Returns:
+            inlier_keypoints_0 (np.ndarray): Shape (2, M). Inlier subset of keypoints_0.
+            inlier_keypoints_1 (np.ndarray): Shape (2, M). Inlier subset of keypoints_1.
+            inlier_mask (np.ndarray): Boolean mask of shape (N,) with True for inliers.
+        """
+        num_points = keypoints_0.shape[1]
+        if num_points < 8:
+            # Not enough points to compute fundamental matrix
+            inlier_mask = np.ones(num_points, dtype=bool)  # trivially keep everything
+            return keypoints_0, keypoints_1, inlier_mask
+
+        # Convert from (2, N) to (N, 2) because cv2.findFundamentalMat expects (x, y) per row
+        pts0 = keypoints_0.T  # shape (N, 2)
+        pts1 = keypoints_1.T  # shape (N, 2)
+
+        # Compute fundamental matrix using RANSAC
+        # Note: FM_RANSAC uses pixel coords. If you want more strict filtering, reduce ransacReprojThreshold
+        F, mask = cv2.findFundamentalMat(
+            pts0, 
+            pts1, 
+            method=cv2.FM_RANSAC, 
+            ransacReprojThreshold=ransacReprojThreshold, 
+            confidence=confidence, 
+            maxIters=maxIters
+        )
+        if mask is None:
+            # If F can't be found or something fails, return original
+            inlier_mask = np.ones(num_points, dtype=bool)
+            return keypoints_0, keypoints_1, inlier_mask
+
+        # 'mask' is an N x 1 array of 0/1 indicating outliers/inliers
+        mask = mask.ravel().astype(bool)
+
+        inlier_keypoints_0 = keypoints_0[:, mask]
+        inlier_keypoints_1 = keypoints_1[:, mask]
+
+        return inlier_keypoints_0, inlier_keypoints_1, mask
+
+
     @time_function
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
@@ -1134,6 +1193,39 @@ class VisualOdometry:
         landmarks_1 = landmarks_0[:, st == 1]
         descriptors_1 = descriptors_0[:, st == 1]
         history.texts.append(f"-4. landmarks_1.shape after track_keypoints : {landmarks_1.shape}")
+
+
+
+
+
+        # print(landmarks_1.shape, descriptors_1.shape, keypoints_1.shape, keypoints_0.shape, st.shape)
+
+        tracked_keypoints_0 = keypoints_0[:, st == 1]
+        tracked_keypoints_1 = keypoints_1
+        # print(tracked_keypoints_0.shape)
+
+        # -----------------------------------------------------
+        # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
+        # -----------------------------------------------------
+        # Filter out outliers among the newly tracked points
+        filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
+            tracked_keypoints_0, 
+            tracked_keypoints_1, 
+            # ransacReprojThreshold=0.05,
+            ransacReprojThreshold=0.5,
+            confidence=0.99,
+            maxIters=2000
+        )
+        history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        keypoints_1 = keypoints_1[:, fm_inliers_mask] 
+        landmarks_1 = landmarks_1[:, fm_inliers_mask]
+        descriptors_1 = descriptors_1[:, fm_inliers_mask]
+        history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+
+
+
+
+
 
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
