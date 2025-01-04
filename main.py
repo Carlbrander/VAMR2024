@@ -158,13 +158,13 @@ def dataset_setup(args):
         args.gt_camera_position = poses
         args.gt_R = np.array([pose[0] for pose in poses])
         args.gt_t = np.array([pose[1] for pose in poses])
-        plot_camera_trajectory(args.gt_t)
+        # plot_camera_trajectory(args.gt_t)
     elif ds == 2:
         args.gt_Rt = poses
         args.gt_camera_position = poses
         args.gt_R = np.array([pose[0] for pose in poses])
         args.gt_t = np.array([pose[1] for pose in poses])
-        plot_camera_trajectory(args.gt_t)
+        # plot_camera_trajectory(args.gt_t)
     elif ds == 1:
         #empty array with 12 columns for now
         args.gt_camera_position = np.array([[]])    
@@ -232,7 +232,9 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
         RMS = 0
         is_benchmark = True
-        plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
+
+        if i % 200 == 0:
+            plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
         
         #update previous image
         prev_img = image

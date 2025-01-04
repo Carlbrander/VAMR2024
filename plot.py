@@ -5,6 +5,8 @@ import numpy as np
 import platform
 import textwrap
 
+from VO import time_function
+
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
         self.fig = plt.figure(figsize=(18, 10))
@@ -19,6 +21,7 @@ class Plotter:
         # Pause logic
         self.paused = [False]
 
+    @time_function
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
         # Clear the figure to update it
         self.fig.clf()
@@ -44,8 +47,8 @@ class Plotter:
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        plt.show(block=False)
-        plt.pause(0.00000000001)
+        # plt.show(block=False)
+        # plt.pause(0.00000000001)
         plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop

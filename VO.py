@@ -4,6 +4,8 @@ from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 
+import time
+import functools
 
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
@@ -14,6 +16,17 @@ from bootstrapping_utils.exercise_3.match_descriptors import matchDescriptors
 
 
 np.random.seed(1)
+
+
+def time_function(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        print(f"{func.__name__} executed in {end - start:.2f} seconds")
+        return result
+    return wrapper
 
 
 class VisualOdometry:
@@ -39,6 +52,7 @@ class VisualOdometry:
         #internal image counter
         self.current_image_counter = 0
 
+    @time_function
     def detect_keypoints(self, image, num_keypoints=None, nonmaximum_suppression_radius=None):
         """
         Detect keypoints and their descriptors in the given frame
@@ -96,6 +110,7 @@ class VisualOdometry:
 
         return keypoints, descriptors
 
+    @time_function
     def match_features(self, descriptors_1, descriptors_0, keypoints_1, keypoints_0):
         """
         Match features between two frames
@@ -166,7 +181,8 @@ class VisualOdometry:
         
 
         return matched_keypoints_1.T, matched_keypoints_0.T, matches
-            
+
+    @time_function
     def estimate_motion(self, keypoints_1, landmarks_1):
         """
         Estimate the motion between two frames
@@ -198,6 +214,7 @@ class VisualOdometry:
 
         return R_1, t_1, inliers
 
+    @time_function
     def triangulate_landmarks(self, keypoints_1, keypoints_2, R_1, t_1, R_2, t_2):
         """
         Triangulate new landmarks from keypoints in two frames
@@ -236,6 +253,7 @@ class VisualOdometry:
 
         return landmarks_final
 
+    @time_function
     def track_keypoints(self, prev_image, image, keypoints_0):
         """
         Track keypoints between two frames
@@ -276,6 +294,7 @@ class VisualOdometry:
         
         return keypoints_1, st
 
+    @time_function
     def track_and_update_hidden_state(self, Hidden_state, R_1, t_1):
 
         
@@ -330,6 +349,7 @@ class VisualOdometry:
 
         return new_Hidden_state
 
+    @time_function
     def remove_duplicate_keypoints(self, Hidden_state):
         newest_Hidden_state = Hidden_state[-1]
         num_keypoints = newest_Hidden_state[0].shape[1]
@@ -367,6 +387,7 @@ class VisualOdometry:
 
         return Hidden_state
 
+    @time_function
     def triangulate_new_landmarks(self, Hidden_state):
         new_keypoints = []
         new_descriptors = []
@@ -424,6 +445,7 @@ class VisualOdometry:
 
         return angle
 
+    @time_function
     def NMS_on_keypoints(self, new_keypoints, old_keypoints, radius):
         """
         Removes new keypoints that are closer than `radius`
@@ -502,6 +524,7 @@ class VisualOdometry:
 
         return removal_indices
 
+    @time_function
     def spatial_non_maximum_suppression(self, keypoints, landmarks, descriptors, keypoints_1, landmarks_1, descriptors_1):
         
 
@@ -543,6 +566,7 @@ class VisualOdometry:
 
         return landmarks, keypoints, descriptors
 
+    @time_function
     def statistical_filtering(self, keypoints, landmarks, descriptors, R_1, t_1):
 
         #This function checks for landmarks that are a lot further away from the camera than the average distance of all landmarks
@@ -825,6 +849,7 @@ class VisualOdometry:
 
         return optimized_R, optimized_t, optimized_landmarks_current, updated_keypoints, updated_descriptors, history.landmarks
 
+    @time_function
     def add_new_landmarks(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history):
         # history.texts.append(f"landmarks_1.shape: {landmarks_1.shape}")
 
@@ -1000,6 +1025,7 @@ class VisualOdometry:
         
         return keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
 
+    @time_function
     def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1):
 
         #Adapt the number of keypoints to detect dynamically based on the number of keypoints in the hidden state
@@ -1038,6 +1064,7 @@ class VisualOdometry:
             self.threshold_angle = 0.0001#round(max(0.001, landmarks_1.shape[1] / 18000), 2)
             # print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
+    @time_function
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
         if landmarks.size == 0:
@@ -1111,11 +1138,12 @@ class VisualOdometry:
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
-        inliers = inliers.flatten()
-        keypoints_1 = keypoints_1[:, inliers]
-        landmarks_1 = landmarks_1[:, inliers]
+        if inliers is not None:
+            inliers = inliers.flatten()
+            keypoints_1 = keypoints_1[:, inliers]
+            landmarks_1 = landmarks_1[:, inliers]
+            descriptors_1 = descriptors_1[:, inliers]
         history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
-        descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
 
         ###Triangulate new Landmarks###
