@@ -920,8 +920,8 @@ class VisualOdometry:
         
 
         # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        print(f"2. Number of the triangulated_landmarks before reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
-        print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
+        # print(f"2. Number of the triangulated_landmarks before reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
+        # print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
 
         # if landmarks_1.shape[1] < 100:
         #     num_points_to_keep = 100
@@ -971,7 +971,7 @@ class VisualOdometry:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
             self.num_keypoints = 800#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
-            print(f"-6. self.num_keypoints: {self.num_keypoints}")
+            # print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
         #self.num_keypoints = max(1,-landmarks_1.shape[1] + 500)
@@ -985,7 +985,7 @@ class VisualOdometry:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
             self.threshold_angle = 0.0001#round(max(0.001, landmarks_1.shape[1] / 18000), 2)
-            print(f"-101. self.threshold_angle: {self.threshold_angle}")
+            # print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
