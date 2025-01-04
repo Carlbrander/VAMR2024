@@ -301,7 +301,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-2:-1]:
+            for candidate in Hidden_state[-10:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -356,7 +356,7 @@ class VisualOdometry:
 
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[-2:-1]:
+        for candidate in Hidden_state[-10:-1]:
             if len(candidate) == 0:
                 continue
 
@@ -394,7 +394,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-2:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[-10:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -1034,7 +1034,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[:-1]:
+        for candidate in Hidden_state[-10:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)
