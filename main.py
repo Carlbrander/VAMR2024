@@ -24,7 +24,7 @@ def parse_arguments():
     args.corner_patch_size = 9
     args.harris_kappa = 0.08
     args.num_keypoints = 1000
-    args.nonmaximum_supression_radius = 10
+    args.nonmaximum_supression_radius = 5
     args.descriptor_radius = 9
     args.match_lambda = 4
     args.use_BA = False
@@ -131,7 +131,7 @@ def dataset_setup(args):
     # need to set bootstrap_frames
     if ds == 0:
         start = 0
-        bootstrap_frames = [start, start + 10] # having more than 2 frames in between brakes ground thruth calculation
+        bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path

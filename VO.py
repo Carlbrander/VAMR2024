@@ -671,9 +671,9 @@ class VisualOdometry:
             gray = self.image
 
         history.texts.append(f"Number of Keypoints allowed to detect: {self.num_keypoints}")
-        history.texts.append(f"-2 Number of freshly Detected Keypoints: {new_keypoints.shape[1]}")
+        history.texts.append(f"-3 Number of freshly Detected Keypoints: {new_keypoints.shape[1]}")
         print("Number of Keypoints allowed to detect:", self.num_keypoints)
-        print("-2 Number of freshly Detected Keypoints:", new_keypoints.shape[1])
+        print("-3 Number of freshly Detected Keypoints:", new_keypoints.shape[1])
 
 
         #NMS on new keypoints with keypoints_1 and hidden features
@@ -689,8 +689,8 @@ class VisualOdometry:
 
         new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
         new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
-        print("-1 Number of Keypoints after NMS:", new_keypoints.shape[1])
-        history.texts.append(f"-1 Number of Keypoints after NMS: {new_keypoints.shape[1]}")
+        print("-2 Number of Keypoints after NMS:", new_keypoints.shape[1])
+        history.texts.append(f"-2 Number of Keypoints after NMS: {new_keypoints.shape[1]}")
 
 
         # Add new keypoints & descriptors to the Hidden_state: list of arrays: [original keypoints, original R, original t, tracked keypoints]
@@ -790,7 +790,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
         if self.use_sift:
-            self.num_keypoints = 500#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
+            self.num_keypoints = 200#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
             #print(f"-6. self.num_keypoints: {self.num_keypoints}")
 
 
@@ -804,7 +804,7 @@ class VisualOdometry:
         if not self.use_sift:
             self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
         if self.use_sift:
-            self.threshold_angle = 0.1 #round(max(0.001, landmarks_1.shape[1] / 18000), 2)
+            self.threshold_angle = 0.05 #round(max(0.001, landmarks_1.shape[1] / 18000), 2)
             #print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
