@@ -1287,8 +1287,9 @@ class VisualOdometry:
 
 
 
-        plot_2d(image, history)
-        plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1])
+        # plot_2d(image, history)
+        # plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1])
+        # plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
         # plot_trajectory_and_landmarks(history)
         # plot_trajectory_and_landmarks_3d(history, save_html=True)
 
@@ -1594,6 +1595,28 @@ def plot_top_view__constant_zoom(history, history_landmarks, history_R, history_
     print(camera_x[-1], camera_z[-1], dx, dz)
     ax_3d_1.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
     # ax_3d_1.set_title('Top View: Constant Zoom')
+
+    plt.savefig(f"output/plot_top_view__constant_zoom_{len(history.camera_position):06}.tiff")
+    plt.close()
+
+
+def plot_3d(history_landmarks, history, triangulated_landmarks):
+    fig = plt.figure(figsize=(5, 3))
+    ax_3d = fig.add_subplot(111)
+
+    est_trans = np.array(history.camera_position)
+    ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'r', marker='*', markersize=3, label='Estimated pose')
+    
+    # Plot ground truth trajectory if available
+    # if len(self.gt_camera_position) > 0:
+    #     gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
+    #     bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
+    #     ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled GT')
+        # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
+    
+    ax_3d.set_title('Estimated trajectory')
+    ax_3d.axis('equal')
+    ax_3d.legend(fontsize=8, loc='best')
 
     plt.savefig(f"output/plot_top_view__constant_zoom_{len(history.camera_position):06}.tiff")
     plt.close()
