@@ -346,7 +346,14 @@ class VisualOdometry:
 
             # Update indices to keep
             indices_to_keep[close_indices] = False
+            # Indices where there is a match
+            #matched_indices = np.where(matches != -1)[0]
+        
+            # Ensure matched_indices are within bounds
+            #matched_indices = matched_indices[matched_indices < indices_to_keep.size]
 
+            # Update the mask to False for matched indices
+            #indices_to_keep[matched_indices] = False
         # Apply the mask once after the loop
         newest_Hidden_state[0] = newest_Hidden_state[0][:, indices_to_keep]
         newest_Hidden_state[3] = newest_Hidden_state[3][:, indices_to_keep]
@@ -356,26 +363,6 @@ class VisualOdometry:
 
         return Hidden_state
 
-    def difference_in_rotation_around_y(self, R1, R2):
-        """
-        Computes how much extra rotation around the y-axis is
-        applied by R2 compared to R1.
-        """
-        # 1) Form the difference rotation: ΔR = R1^T * R2
-        DeltaR = R1.T @ R2
-
-        # 2) Convert ΔR into Euler angles in z-y-x order.
-        #    'zyx' means the returned angles correspond to rotations about:
-        #        first x, then y, then z.
-        #    So euler[1] is the rotation around the y-axis (the 'pitch').
-        euler_zyx = R.from_matrix(DeltaR).as_euler('zyx', degrees=False)
-
-        # euler_zyx = [rotation_z, rotation_y, rotation_x]
-        # We want the middle entry for the y-axis rotation:
-        pitch = euler_zyx[1]
-
-        return pitch
-    
     def triangulate_new_landmarks(self, Hidden_state):
         new_keypoints = []
         new_descriptors = []
@@ -402,12 +389,7 @@ class VisualOdometry:
                 for landmark in landmarks.T:
                     # Calculate bearing angle between the landmark and both camera views
                     angle = self.calculate_angle(landmark, candidate[2], candidate[5])
-                    angles.append(angle)
-
-                R1 = candidate[1]
-                R2 = candidate[4] 
-                pitch = self.difference_in_rotation_around_y(R1, R2)
-   
+                    angles.append(angle)   
 
                 # If angle > threshold, add to lists
                 for idx, angle in enumerate(angles):
