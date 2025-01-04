@@ -286,8 +286,6 @@ class VisualOdometry:
         return keypoints_1, st
 
     def track_and_update_hidden_state(self, Hidden_state, R_1, t_1):
-
-        
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
@@ -295,12 +293,8 @@ class VisualOdometry:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
-               
 
                 candidate_keypoints, st  = self.track_keypoints(self.prev_image, self.image, candidate[3])
-                
-                    
-               
 
                 st = st.reshape(-1)
 
@@ -325,18 +319,17 @@ class VisualOdometry:
 
                 candidate[5] = t_1.reshape(3, 1)
 
+                R = self.est_rot[-1,:].reshape(3, 3)
+                translation = self.est_trans[-1, :]
 
-                candidate = [np.array(candidate[0]), np.array(candidate[1]), np.array(candidate[2]), np.array(candidate[3]), np.array(candidate[4]), np.array(candidate[5]), np.array(candidate[6]), candidate[7]]
+                R_last = self.est_rot[-2,:].reshape(3, 3)
+                translation_last = self.est_trans[-2, :]
+
+                candidate = [self.P, R , R, translation, self.C, R_last, translation_last]
 
                 new_Hidden_state.append(candidate)
 
-        
         new_Hidden_state.append(Hidden_state[-1])
-
-      
-
-                
-
         return new_Hidden_state
 
     def remove_duplicate_keypoints(self, Hidden_state):
@@ -792,16 +785,6 @@ class VisualOdometry:
         # switch rows and columns to get the correct format
         new_keypoints = new_keypoints[[1, 0], :]
 
-
-
-
-
-        if len(self.image.shape) > 2:
-            gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = self.image
-
-        history.texts.append(f"Number of Keypoints allowed to detect: {self.num_keypoints}")
         history.texts.append(f"Number of freshly Detected Keypoints: {new_keypoints.shape[1]}")
 
 
@@ -809,42 +792,8 @@ class VisualOdometry:
         new_T = np.tile(np.hstack((R_1.flatten(), t_1.flatten())), (new_keypoints.shape[1], 1)).T
         self.T = np.hstack((self.T, new_T))
 
-        # 
         self.C = np.hstack((self.C, new_keypoints))
         self.F = np.hstack((self.F, new_keypoints))
-
-
-        #remove_indices = []
-#
-        ####NMS on the new keypoints only between each other ###
-        #for i in range(new_keypoints.shape[1]):
-        #    for j in range(new_keypoints.shape[1]):
-        #        if i == j:
-        #            continue
-        #        dist = np.linalg.norm(new_keypoints[:, i] - new_keypoints[:, j])
-        #        if dist < self.nonmaximum_suppression_radius:
-        #            remove_indices.append(i)
-        #            break
-#
-        #new_keypoints = np.delete(new_keypoints, remove_indices, axis=1)
-        #new_descriptors = np.delete(new_descriptors, remove_indices, axis=1)
-
-
-        print("Number of Keypoints after NMS between all new keypoints:", new_keypoints.shape[1])
-
-
-
-        # Remove all the newly detected keypoints based on the keypoints
-        # that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
-        #removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
-#
-#
-        ##remove the newly detected keypoints that are too close to the already tracked keypoints
-        #new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
-        #new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
-
-        history.texts.append(f"Number of new keypoints after NMS added to latest Hidden State: {new_keypoints.shape[1]}")
-
 
         # Add new keypoints & descriptors to the Hidden_state
         Hidden_state.append([new_keypoints, R_1, t_1.reshape(3,1), new_keypoints, R_1, t_1.reshape(3,1), new_descriptors, self.current_image_counter]) 
@@ -872,7 +821,7 @@ class VisualOdometry:
 
         
         ### Remove Duplicate Keypoints in newest Hidden state ###
-        Hidden_state = self.remove_duplicate_keypoints(Hidden_state)
+        #Hidden_state = self.remove_duplicate_keypoints(Hidden_state)
 
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
@@ -964,13 +913,7 @@ class VisualOdometry:
         
         return keypoints_2, landmarks_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, new_keypoints
 
-    def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, R_1, t_1):
-
-        #Adapt the number of keypoints to detect dynamically based on the number of keypoints in the hidden state
-        
-        #linear function to adapt the number of keypoints to detect with no more at 300 keypoints
-        
-
+    def adapt_parameters(self, Hidden_state, landmarks_1):
         landmarks_count = []
         for candidate in Hidden_state[:-1]:
             #if candidate is an empty list:
@@ -979,19 +922,6 @@ class VisualOdometry:
                 continue
             landmarks_count.append(candidate[0].shape[1])  
 
-        #get the number of keypoints in the hidden state
-        sum_hidden_state_landmarks = sum(landmarks_count)
-
-        if not self.use_sift:
-            self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
-        if self.use_sift:
-            self.num_keypoints = 800#max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
-            print(f"-6. self.num_keypoints: {self.num_keypoints}")
-
-
-        #self.num_keypoints = max(1,-landmarks_1.shape[1] + 500)
-
-        
         #Adapt the threshold angle dynamically based on the number of keypoints being tracked right now
 
         #this adapts the threshold angle to be higher if more keypoints are tracked (make it harder for new ones to be added)
@@ -1194,14 +1124,12 @@ class VisualOdometry:
         self.prev_image = prev_image
         
         ###Track keypoints from last frame to this frame using KLT###
-        history.texts.append(f"-6. keypoints_0.shape at the beginning of process_image: {keypoints_0.shape}")
+        history.texts.append(f"-5. keypoints at the beginning of process_image: {keypoints_0.shape}")
         keypoints_1, st = self.track_keypoints(prev_image, image, keypoints_0)
-        history.texts.append(f"-5. keypoints_1.shape after track_keypoints : {keypoints_1.shape}")
         st = st.reshape(-1)
         #remove keypoints that are not tracked
         landmarks_1 = landmarks_0[:, st == 1]
-        # descriptors_1 = descriptors_0[:, st == 1]
-        history.texts.append(f"-4. landmarks_1.shape after track_keypoints : {landmarks_1.shape}")
+        history.texts.append(f"-4. landmarks after track_keypoints : {landmarks_1.shape}")
 
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
@@ -1222,8 +1150,7 @@ class VisualOdometry:
         ###Triangulate new Landmarks###
 
         # Adapt Parameter for Landmark Detection dynamically #
-        self.adapt_parameters(Hidden_state, keypoints_1, landmarks_1, R_1, t_1)
-        history.texts.append(f"-2. self.num_keypoints: {self.num_keypoints}")
+        self.adapt_parameters(Hidden_state, landmarks_1)
         history.texts.append(f"-1. self.threshold_angle: {self.threshold_angle}")
 
         keypoints_2, landmarks_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, new_keypoints = self.add_new_landmarks(keypoints_1, landmarks_1, R_1, t_1, Hidden_state, history)
