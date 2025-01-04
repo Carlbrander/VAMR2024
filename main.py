@@ -158,13 +158,13 @@ def dataset_setup(args):
         args.gt_camera_position = poses
         args.gt_R = np.array([pose[0] for pose in poses])
         args.gt_t = np.array([pose[1] for pose in poses])
-        # plot_camera_trajectory(args.gt_t)
+        plot_camera_trajectory(args.gt_t)
     elif ds == 2:
         args.gt_Rt = poses
         args.gt_camera_position = poses
         args.gt_R = np.array([pose[0] for pose in poses])
         args.gt_t = np.array([pose[1] for pose in poses])
-        # plot_camera_trajectory(args.gt_t)
+        plot_camera_trajectory(args.gt_t)
     elif ds == 1:
         #empty array with 12 columns for now
         args.gt_camera_position = np.array([[]])    
@@ -260,15 +260,16 @@ if __name__ == "__main__":
 
     #Bootstrapping
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
-    scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
-    args.gt_camera_position = []
-    offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
-    for i in range(len(args.gt_t)):
-        # t_new = -R @ t
-        args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
-        args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
+    if args.ds != 1:
+        scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
+        args.gt_camera_position = []
+        offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
+        for i in range(len(args.gt_t)):
+            # t_new = -R @ t
+            args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
+            args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
 
-    args.gt_camera_position = args.gt_camera_position/scale
+        args.gt_camera_position = args.gt_camera_position/scale
 
 
     #Initialize History
