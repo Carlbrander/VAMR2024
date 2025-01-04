@@ -8,9 +8,9 @@ import textwrap
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
         self.fig = plt.figure(figsize=(18, 10))
-        self.mng = plt.get_current_fig_manager()
-        if platform.system() != 'Linux':
-            self.mng.window.state('normal')
+        # self.mng = plt.get_current_fig_manager()
+        # if platform.system() != 'Linux':
+        #     self.mng.window.state('normal')
         self.gt_camera_position = camera_positions[2:-1]
         self.camera_position_bm = camera_position_bm
         self.bootstrap_frames = bootstrap_frames
@@ -125,9 +125,9 @@ class Plotter:
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
 
-        #plot old landmarks from the history in yellow until previous frame
-        for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
-            ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
+        # #plot old landmarks from the history in yellow until previous frame
+        # for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
+        #     ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
 
         #plot landmarks from current frame in blue which have not been plotted before
         ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
@@ -234,24 +234,7 @@ class Plotter:
         ax_4.plot(triangulated_landmarks, label='Triangulated Landmarks', color='r')
 
         #plot sum of landmarks in the hidden state
-        landmarks_count = []
-
-        
-        for candidate in history_hidden_states[:-1]:
-
-            #if candidate is an empty list:
-            if len(candidate) == 0:
-                landmarks_count.append(0)
-            else:
-                
-                landmarks_count.append(candidate[0].shape[1])  
-
-        #create a list with the sum of all values left of the current one for each element
-        landmarks_sums = []
-        for i in range(len(landmarks_count)):
-            landmarks_sums.append(np.sum(landmarks_count[:i+1]))
-        landmarks_sums = [0] + [0] + landmarks_sums
-        ax_4.plot(landmarks_sums, label='Sum of Landmarks in Hidden State', color='g')
+        ax_4.plot(history_hidden_states, label='Sum of Landmarks in Hidden State', color='g')
 
 
 
@@ -287,9 +270,9 @@ class Plotter:
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
 
-        #plot old landmarks from the history in yellow until previous frame
-        for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
-            ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
+        # #plot old landmarks from the history in yellow until previous frame
+        # for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
+        #     ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
 
         #plot landmarks from current frame in blue which have not been plotted before
         ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)

@@ -32,7 +32,7 @@ def parse_arguments():
     args.max_depth = 100
 
 
-    args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
+    args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
     args.min_baseline = 0.0 # only for the start anyway, adapted dynamically
 
     return args
