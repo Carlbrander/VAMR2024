@@ -186,7 +186,7 @@ class VisualOdometry:
                     self.K, 
                     distCoeffs=None,
                     iterationsCount=2000,
-                    reprojectionError=8.0,
+                    reprojectionError=1.0,
                     confidence=0.999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
@@ -924,21 +924,21 @@ class VisualOdometry:
         print(f"2. Number of the triangulated_landmarks before reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
         print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
 
-        if landmarks_1.shape[1] < 100:
-            num_points_to_keep = 100
-        else:
-            num_points_to_keep = 50
-        if triangulated_landmarks.shape[1] > num_points_to_keep:
-            history.texts.append("Too many new landmarks, reducing number")
-            # num_points_to_keep = int(100)
-            indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
-            triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
-            triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
-            triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
-            #update the Hidden state with the reduced number of new landmarks
-            Hidden_state[-1][0] = triangulated_keypoints
-            Hidden_state[-1][3] = triangulated_keypoints
-            Hidden_state[-1][6] = triangulated_descriptors
+        # if landmarks_1.shape[1] < 100:
+        #     num_points_to_keep = 100
+        # else:
+        #     num_points_to_keep = 50
+        # if triangulated_landmarks.shape[1] > num_points_to_keep:
+        #     history.texts.append("Too many new landmarks, reducing number")
+        #     # num_points_to_keep = int(100)
+        #     indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
+        #     triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
+        #     triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
+        #     triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
+        #     #update the Hidden state with the reduced number of new landmarks
+        #     Hidden_state[-1][0] = triangulated_keypoints
+        #     Hidden_state[-1][3] = triangulated_keypoints
+        #     Hidden_state[-1][6] = triangulated_descriptors
 
         history.texts.append(f"Number of the triangulated_landmarks after reducing number: {triangulated_landmarks.shape[1]}")
 
