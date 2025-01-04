@@ -1117,9 +1117,9 @@ class VisualOdometry:
 
 
 
-        plot_2d(image, history)
+        # plot_2d(image, history)
         # plot_trajectory_and_landmarks(history)
-        plot_trajectory_and_landmarks_3d(history, save_html=True)
+        # plot_trajectory_and_landmarks_3d(history, save_html=True)
 
 
 
