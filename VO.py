@@ -820,13 +820,13 @@ class VisualOdometry:
 
 
 
-        # #Remove all the newly detected keypoints based on the keypoints
-        # #that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
-        # removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
+        #Remove all the newly detected keypoints based on the keypoints
+        #that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
+        removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
 
-        # #remove the newly detected keypoints that are too close to the already tracked keypoints
-        # new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
-        # new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
+        #remove the newly detected keypoints that are too close to the already tracked keypoints
+        new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
+        new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
 
         history.texts.append(f"Number of new keypoints after NMS added to latest Hidden State: {new_keypoints.shape[1]}")
 
