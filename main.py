@@ -24,7 +24,7 @@ def parse_arguments():
     args.corner_patch_size = 9
     args.harris_kappa = 0.08
     args.num_keypoints = 1000
-    args.nonmaximum_supression_radius = 5
+    args.nonmaximum_supression_radius = 10
     args.descriptor_radius = 9
     args.match_lambda = 4
     args.use_BA = False
@@ -32,8 +32,8 @@ def parse_arguments():
     args.max_depth = 100
 
 
-    args.threshold_angle = 0.01 # only for the start anyway, adapted dynamically
-    args.min_baseline = 0.5 # only for the start anyway, adapted dynamically
+    args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
+    args.min_baseline = 0 # only for the start anyway, adapted dynamically
 
     return args
 
@@ -131,7 +131,7 @@ def dataset_setup(args):
     # need to set bootstrap_frames
     if ds == 0:
         start = 0
-        bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
+        bootstrap_frames = [start, start + 10] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
@@ -221,6 +221,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         #     continue
 
         print(f'\n\nProcessing frame {i}\n=====================')
+
         
         image = load_image(args.ds, i, args)
 
