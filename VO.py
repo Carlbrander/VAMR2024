@@ -901,12 +901,12 @@ class VisualOdometry:
             history.texts.append(f"Number of new Landmarks after removing the negatives: {triangulated_landmarks.shape[1]}")
         else:
             history.texts.append("Number of new Landmarks after removing the negatives: is zero")
-        ### Spatial Non Maximum Suppression between within new and old Landmarks ###
-        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
-        if len(triangulated_landmarks) > 0:
-            history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
-        else:
-            history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
+        # ### Spatial Non Maximum Suppression between within new and old Landmarks ###
+        # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
+        # if len(triangulated_landmarks) > 0:
+        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
+        # else:
+        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
 
         # ### Statistical Filtering of new Landmarks ###
         # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
