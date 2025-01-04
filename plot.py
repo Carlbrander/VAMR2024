@@ -30,6 +30,7 @@ class Plotter:
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
         self.plot_text(img, history, current_iteration)
+        self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -278,7 +279,71 @@ class Plotter:
 
         # ax.imshow(image_rgb)
         ax.set_title(f'Logs. Iteration={current_iteration}')
-    
+
+    def plot_top_view__constant_zoom(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
+        #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
+        ax_3d_1 = ax.add_subplot(236)
+        ax_3d_1.set_xlabel('X')
+        ax_3d_1.set_ylabel('Z')
+        ax_3d_1.set_aspect('equal', adjustable='datalim')
+
+        #plot old landmarks from the history in yellow until previous frame
+        for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
+            ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
+
+        #plot landmarks from current frame in blue which have not been plotted before
+        ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
+
+        #plot triangulated landmarks in red
+        if triangulated_landmarks.size != 0:
+            ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
+
+
+        camera_x = [point[0] for point in history.camera_position]
+        camera_z = [point[2] for point in history.camera_position]
+        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
+        camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
+        ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
+        ax_3d_1.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
+        ax_3d_1.legend()
+
+
+        # Plot the latest pose in red
+        ax_3d_1.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x')
+
+        #set the limits of the plot to 4* the standard deviation of the landmarks in x and z direction
+        #this is to make sure that the plot is not too zoomed in and doesnt explode if there is one mismatch
+
+        x_std = np.std(np.abs(history_landmarks[-1][0, :]))
+        z_std = np.std(np.abs(history_landmarks[-1][2, :]))
+
+        x_mean = np.mean(history_landmarks[-1][0, :])
+        z_mean = np.mean(history_landmarks[-1][2, :])
+
+        # ax_3d_1.set_xlim((-4 * x_std )+ x_mean, (4 * x_std) + x_mean)
+        # ax_3d_1.set_ylim((-4 * z_std) + z_mean, (4 * z_std) + z_mean)
+
+        #ax_3d_1.set_xlim((-4 * x_std )+ camera_x, (4 * x_std) + camera_x)
+        #ax_3d_1.set_ylim((-4 * z_std) + camera_z, (4 * z_std) + camera_z)
+
+        ax_3d_1.set_xlim((-4 * 4) + camera_x[-1], (4 * 4) + camera_x[-1])
+        ax_3d_1.set_ylim((-2 * 4) + camera_z[-1], (6 * 4) + camera_z[-1])
+
+        # Compute the camera's forward direction in world coordinates
+        forward_vector = history_R[-1].T @ np.array([0, 0, 1])
+
+        dx = forward_vector[0]
+        dz = forward_vector[2]
+
+        # Normalize the direction vector
+        norm = np.sqrt(dx**2 + dz**2)
+        dx /= norm
+        dz /= norm
+
+        #add arrow in the direction the camera is looking:
+        ax_3d_1.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
+        ax_3d_1.set_title('Top View: Constant Zoom')
+
     def toggle_pause(self, event):
         self.paused[0] = not self.paused[0]
 

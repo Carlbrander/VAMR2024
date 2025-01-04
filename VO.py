@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from matplotlib import pyplot as plt
 
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
@@ -1114,6 +1115,41 @@ class VisualOdometry:
 
 
 
+        plot_2d(image, history)
+
 
 
         return keypoints_3, landmarks_3, descriptors_3, R_2, t_2, Hidden_state, history
+
+
+def plot_2d(img, history):
+    triangulated_keypoints = history.triangulated_keypoints[-1]
+    keypoints_history = history.keypoints
+
+    plt.figure(figsize=(25, 18))
+    #make sure the image is in color
+    image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+
+    #plot previous keypoints in yellow
+    for keypoints_from_history in keypoints_history[max(-10, -len(keypoints_history)):-1]:
+        for kp in keypoints_from_history.T:
+            center = tuple(kp.astype(int))
+            cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
+
+    #plot current keypoints blue
+    for keypoints_from_history in keypoints_history[-1].T:
+        center = tuple(keypoints_from_history.astype(int))
+        cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
+
+    #plot new keypoints in red
+    for kp in triangulated_keypoints.T:
+        center = tuple(kp.astype(int))
+        cv2.circle(image_plotting, center, 3, (0, 0, 255), -1)
+
+    image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
+
+    plt.imshow(image_rgb)
+    plt.axis('off')
+    plt.savefig(f"output/debug_plot2d_{len(history.camera_position):06}.png")
+    plt.close()
