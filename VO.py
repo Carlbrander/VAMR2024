@@ -281,7 +281,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-2:-1]:
+            for candidate in Hidden_state[-20:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -335,7 +335,7 @@ class VisualOdometry:
 
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[:-1]:
+        for candidate in Hidden_state[-20:-1]:
             if len(candidate) == 0:
                 continue
 
@@ -372,7 +372,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-2:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[-20:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -461,7 +461,7 @@ class VisualOdometry:
 
 
         #define a threshold for the distance between keypoints
-        threshold = 0.3 #in meters
+        threshold = 0.0 #in meters
 
         #initialize a list to store the indices of the keypoints to keep
         indices_to_keep = []
@@ -815,18 +815,17 @@ class VisualOdometry:
         #new_descriptors = np.delete(new_descriptors, remove_indices, axis=1)
 
 
-        print("Number of Keypoints after NMS between all new keypoints:", new_keypoints.shape[1])
+        # print("Number of Keypoints after NMS between all new keypoints:", new_keypoints.shape[1])
 
 
 
-        # Remove all the newly detected keypoints based on the keypoints
-        # that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
-        #removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
-#
-#
-        ##remove the newly detected keypoints that are too close to the already tracked keypoints
-        #new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
-        #new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
+        # #Remove all the newly detected keypoints based on the keypoints
+        # #that are already in the Hidden state and in the current frame (or at least the ones that are in the current frame)
+        # removal_index = self.NMS_on_keypoints(new_keypoints, keypoints_1, radius=self.nonmaximum_suppression_radius)
+
+        # #remove the newly detected keypoints that are too close to the already tracked keypoints
+        # new_keypoints = np.delete(new_keypoints, removal_index, axis=1)
+        # new_descriptors = np.delete(new_descriptors, removal_index, axis=1)
 
         history.texts.append(f"Number of new keypoints after NMS added to latest Hidden State: {new_keypoints.shape[1]}")
 
@@ -901,12 +900,12 @@ class VisualOdometry:
             history.texts.append(f"Number of new Landmarks after removing the negatives: {triangulated_landmarks.shape[1]}")
         else:
             history.texts.append("Number of new Landmarks after removing the negatives: is zero")
-        ### Spatial Non Maximum Suppression between within new and old Landmarks ###
-        triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
-        if len(triangulated_landmarks) > 0:
-            history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
-        else:
-            history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
+        # ### Spatial Non Maximum Suppression between within new and old Landmarks ###
+        # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.spatial_non_maximum_suppression(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, keypoints_1, landmarks_1, descriptors_1)
+        # if len(triangulated_landmarks) > 0:
+        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: {triangulated_landmarks.shape[1]}")
+        # else:
+        #     history.texts.append(f"Number of the triangulated_landmarks after NMS: is zero")
 
         # ### Statistical Filtering of new Landmarks ###
         # triangulated_landmarks, triangulated_keypoints, triangulated_descriptors = self.statistical_filtering(triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, R_1, t_1)
@@ -958,7 +957,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[:-1]:
+        for candidate in Hidden_state[-20:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)

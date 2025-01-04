@@ -204,7 +204,7 @@ class Plotter:
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
             center = tuple(kp.astype(int))
-            cv2.circle(image_plotting, center, 3, (0, 0, 255), -1)
+            cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
 
         image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
 
