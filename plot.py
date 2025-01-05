@@ -205,10 +205,10 @@ class Plotter:
         #         center = tuple(kp.astype(int))
         #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
 
-        #plot outliers in green
-        for kp in history.outliers[-1].T:
-            center = tuple(kp.astype(int))
-            cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
+        # #plot outliers in green
+        # for kp in history.outliers[-1].T:
+        #     center = tuple(kp.astype(int))
+        #     cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
      
         #plot current keypoints blue
         for keypoints_from_history in difference.T:

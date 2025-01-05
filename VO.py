@@ -202,7 +202,7 @@ class VisualOdometry:
                     self.K, 
                     distCoeffs=None,
                     iterationsCount=2000,
-                    reprojectionError=1.0,
+                    reprojectionError=5.0,
                     confidence=0.999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
@@ -254,44 +254,58 @@ class VisualOdometry:
         return landmarks_final
 
     @time_function
-    def track_keypoints(self, prev_image, image, keypoints_0):
-        """
-        Track keypoints between two frames
+    def track_keypoints(self, prev_image, image, keypoints_0, method='FAST', options=None):
 
-        Args:
-            prev_image (numpy.ndarray): Previous image
-            image (numpy.ndarray): Current image
-            keypoints_0 (list): Keypoints from last image
-            descriptors_0 (numpy.ndarray): Descriptors from last image
-        
-        Returns:
-            list: Tracked keypoints_1
-            list: Tracked landmarks_1
-            list: Tracked descriptors_1
-        """
-     
+        def genKeypoints(img, method='SIFT', opts=None):
+            if opts is None:
+                opts = {}
+            methods = {}
+            try:
+                methods['SURF'] = cv2.xfeatures2d.SURF_create
+            except AttributeError:
+                pass
+            try:
+                methods['SIFT'] = cv2.SIFT_create
+            except AttributeError:
+                pass
+            methods['ORB'] = cv2.ORB_create
+            methods['BRISK'] = cv2.BRISK_create
+            methods['FAST'] = cv2.FastFeatureDetector_create
+
+            if method not in methods:
+                raise ValueError("Method not supported or unavailable in this OpenCV build")
+
+            detector = methods[method](**opts)
+            if method == 'FAST':
+                kp = detector.detect(img, None)
+                descriptor_extractor = cv2.ORB_create()
+                kp, des = descriptor_extractor.compute(img, kp)
+            else:
+                kp, des = detector.detectAndCompute(img, None)
+            if kp is None or des is None:
+                kp = []
+                des = np.array([])
+            return kp, des
+
         if len(prev_image.shape) > 2:
-                prev_image = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
-        if len(image.shape) > 2:    
+            prev_image = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
+        if len(image.shape) > 2:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        #use KLT to track existing keypoint in this new image
+        kp_new, des_new = genKeypoints(image, method, options)
+
         keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
             prev_image,
             image,
             keypoints_0.T.astype(np.float32),
             None,
-            winSize=(15, 15),
-            maxLevel=2,
+            winSize=(21, 21),
+            maxLevel=4,
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.01),
         )
-    
-        # Select good points
-        st_here = st.reshape(-1)
-        #get new keypoints
-        
-        keypoints_1 = keypoints_1.T[:,st_here == 1]
-        
+
+        st = st.reshape(-1)
+        keypoints_1 = keypoints_1.T[:, st == 1]
         return keypoints_1, st
 
     @time_function
@@ -301,7 +315,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-10:-1]:
+            for candidate in Hidden_state[-3:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -356,7 +370,7 @@ class VisualOdometry:
 
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[-10:-1]:
+        for candidate in Hidden_state[-3:-1]:
             if len(candidate) == 0:
                 continue
 
@@ -394,7 +408,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-10:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[-3:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -945,7 +959,8 @@ class VisualOdometry:
         #Remove hidden state that are empty lists
         Hidden_state = [candidate for candidate in Hidden_state if len(candidate) > 0]
         # Safely remove Hidden States that have less than 4 keypoints using list comprehension
-        Hidden_state = [candidate for candidate in Hidden_state if candidate[3].shape[1] >= 4]
+        # Hidden_state = [candidate for candidate in Hidden_state if candidate[3].shape[1] >= 4]
+        Hidden_state = [candidate for candidate in Hidden_state if candidate[0].shape[1] >= 4]
 
         #print cummulative number of keypoints in hidden state
         sum_hidden_state_landmarks = 0
@@ -1034,7 +1049,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[-10:-1]:
+        for candidate in Hidden_state[-3:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)
