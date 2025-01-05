@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
 from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
@@ -415,6 +416,9 @@ class VisualOdometry:
         new_keypoints = []
         new_descriptors = []
         new_landmarks = []
+
+        all_angles = []
+        all_angles_after = []
         
         if Hidden_state:
             for candidate_i, candidate in enumerate(Hidden_state[:-1]):
@@ -439,6 +443,8 @@ class VisualOdometry:
                     # Calculate bearing angle between the landmark and both camera views
                     angle = self.calculate_angle(landmark, candidate[2], candidate[5])
                     angles.append(angle)   
+                    all_angles.append(angle)
+                    all_angles_after.append(angle)
                     #sort by biggest angle first
                 angles = np.array(angles)
                 angles = np.sort(angles)[::-1]
@@ -452,6 +458,8 @@ class VisualOdometry:
 
                         #remove the keypoints in their hidden state if the are triangulated with large enough angle
                         to_delete_index.append(idx)
+
+                        all_angles_after.remove(angle)
                         
                 # Remove keypoints that were triangulated with large enough angle
                 candidate[0] = np.delete(candidate[0], to_delete_index, axis=1)
@@ -465,6 +473,11 @@ class VisualOdometry:
         new_keypoints = np.array(new_keypoints).T
         new_landmarks = np.array(new_landmarks).T
         new_descriptors = np.array(new_descriptors).T
+
+        #create histogram of all angles before removing the ones with large enough angles
+        history.angles_before.append(all_angles)
+        history.angles_after.append(all_angles_after)
+
 
         return new_keypoints, new_landmarks, new_descriptors, history
 
@@ -736,6 +749,9 @@ class VisualOdometry:
         #This is only for the line plot plotting:
         history.Hidden_states = Hidden_state
 
+        history.current_Hidden_state = Hidden_state
+
+       
         #check the discrepancy between the number of elements in Hidden_state and the frame number
         if len(history.Hidden_states) < self.current_image_counter:
             #get difference

@@ -202,6 +202,10 @@ class History:
         self.threshold_angles = []
         self.num_keypoints = []
 
+        self.angles_before = []
+        self.angles_after = []
+        self.current_Hidden_state = []
+
         self.texts = []
 
 def load_image(ds, i,args):

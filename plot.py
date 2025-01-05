@@ -27,13 +27,82 @@ class Plotter:
         self.fig.clf()
         self.i = current_iteration
 
+        original_image = img.copy()
+
         # Plot Dashboard
         self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
         self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
-        self.plot_text(img, history, current_iteration)
+        #self.plot_text(img, history, current_iteration)
         #self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+
+
+        bins = np.linspace(0, 0.2, 51)  # 50 bins between 0 and 20 degrees
+        #remove all angles under the threshold from angles_before
+        history.angles_before[-1] = [angle for angle in history.angles_before[-1] if angle > history.threshold_angles[-1]]
+
+        #plot histogram of annlge above
+        ax_3d_2 = self.fig.add_subplot(236)
+        ax_3d_2.hist(history.angles_after[-1], bins=bins, color='r', alpha=0.7)
+        ax_3d_2.hist(history.angles_before[-1], bins=bins, color='b', alpha=0.7)
+        ax_3d_2.set_title('Histogram of Angles In all Current Hidden States summed up')
+        ax_3d_2.set_xlabel('Angle in radian')
+        ax_3d_2.set_ylabel('Frequency')
+        ax_3d_2.set_xlim(0, 0.2)
+        ax_3d_2.set_xticks(np.arange(0, 0.2, 0.01))
+        ax_3d_2.legend(['Points with too small angle', '>0.03 Angle points that get added'])
+     
+        #make x text tick vertical
+        plt.xticks(rotation=90)
+
+
+
+
+
+
+        ##Plot another RGB image this time with all hidden states colord by age
+
+        #add image to bottom subplot
+        ax_2d = self.fig.add_subplot(233)
+        #make sure the image is in color
+        image_plotting = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+
+        #get newest frame number
+        newest_frame = history.Hidden_states[-1][7]
+
+        #plot all hidden states in different colors
+        #older ones in red, newer ones in green
+        #create color map
+
+        oldest_frame = np.min([candidate[7] for candidate in history.current_Hidden_state if len(candidate) > 0])
+        print(oldest_frame,"   ", newest_frame)
+        
+        color_map = np.linspace(0, 255, newest_frame+1-oldest_frame)
+
+       
+        for candiate in history.current_Hidden_state:
+            if len(candiate) == 0:
+                continue
+            if len(candiate[3]) == 0:
+                continue
+            for keypoint in candiate[3].T:
+                center = tuple(keypoint.astype(int))
+
+            
+            
+                cv2.circle(image_plotting, center, 3, (255-int(color_map[candiate[7]-oldest_frame]), int(color_map[candiate[7]-oldest_frame]), 0), -1)
+        #image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
+
+        ax_2d.imshow(image_plotting)
+        ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Old, Green = New)')
+
+
+
+        
+
+
+
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
