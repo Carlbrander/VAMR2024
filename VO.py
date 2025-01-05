@@ -1230,7 +1230,7 @@ class VisualOdometry:
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
-        if inliers is not None:
+        if inliers is not None and inliers.shape != (0,):
             history.texts.append(f"-3.1 number of outliers: {keypoints_1[:, ~inliers].shape[1]}")
             history.outliers.append(keypoints_1[:, ~inliers].squeeze())
             inliers = inliers.flatten()

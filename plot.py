@@ -188,6 +188,11 @@ class Plotter:
         triangulated_keypoints = history.triangulated_keypoints[-1]
         keypoints_history = history.keypoints
 
+        if triangulated_keypoints.shape != (0,):
+            difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
+        else:
+            difference = keypoints_history[-1]
+
         #add image to bottom subplot
         ax_2d = self.fig.add_subplot(312)
         #make sure the image is in color
@@ -206,7 +211,7 @@ class Plotter:
             cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
      
         #plot current keypoints blue
-        for keypoints_from_history in keypoints_history[-1].T:
+        for keypoints_from_history in difference.T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
 
@@ -363,3 +368,11 @@ def wrap_text(text, width, subsequent_indent='    '):
     """Wrap text to fit within a specified width with indentation for subsequent lines."""
     wrapper = textwrap.TextWrapper(width=width, subsequent_indent=subsequent_indent)
     return '\n'.join(wrapper.wrap(text))
+
+
+def custom_set_diff(arr1, arr2):
+    # This function assumes that arr1 and arr2 are 2D and that you want to find rows in arr1 not in arr2
+    a1_rows = set(map(tuple, arr1))
+    a2_rows = set(map(tuple, arr2))
+    unique_rows = np.array(list(a1_rows.difference(a2_rows)))
+    return unique_rows
