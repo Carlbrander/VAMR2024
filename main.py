@@ -40,7 +40,7 @@ def parse_arguments():
     args.use_pose_refinement = False
 
     if args.ds == 0:
-        args.threshold_angle = 0.03
+        args.threshold_angle = 0.001
     elif args.ds == 1:
         args.threshold_angle = 0.01
     elif args.ds == 2:
