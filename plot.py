@@ -11,7 +11,7 @@ import textwrap
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
-        self.fig = plt.figure(figsize=(11, 8))
+        self.fig = plt.figure(figsize=(11, 15))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -33,7 +33,7 @@ class Plotter:
         # self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         # self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
-        # self.plot_text(img, history, current_iteration)
+        self.plot_text(img, history, current_iteration)
         # self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
         # Add text on a free space between subplots for tracking parameters
@@ -43,9 +43,9 @@ class Plotter:
         self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
         
         # Draw the pause button
-        pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
-        self.pause_button = Button(pause_button_ax, 'Pause/Resume')
-        self.pause_button.on_clicked(self.toggle_pause)
+        # pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
+        # self.pause_button = Button(pause_button_ax, 'Pause/Resume')
+        # self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
         # plt.show(block=False)
@@ -57,7 +57,7 @@ class Plotter:
         #     plt.pause(0.1)
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
-        ax_3d = self.fig.add_subplot(211)
+        ax_3d = self.fig.add_subplot(311)
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
@@ -189,7 +189,7 @@ class Plotter:
         keypoints_history = history.keypoints
 
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(212)
+        ax_2d = self.fig.add_subplot(312)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -199,6 +199,11 @@ class Plotter:
         #     for kp in keypoints_from_history.T:
         #         center = tuple(kp.astype(int))
         #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
+
+        #plot outliers in green
+        for kp in history.outliers[-1].T:
+            center = tuple(kp.astype(int))
+            cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
      
         #plot current keypoints blue
         for keypoints_from_history in keypoints_history[-1].T:
@@ -209,6 +214,7 @@ class Plotter:
         for kp in triangulated_keypoints.T:
             center = tuple(kp.astype(int))
             cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
+
 
         image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
 
@@ -264,7 +270,7 @@ class Plotter:
 
 
     def plot_text(self, img, history, current_iteration):
-        ax = self.fig.add_subplot(233)
+        ax = self.fig.add_subplot(313)
         # ax = self.fig.add_subplot(236)
 
         # Adding multi-line text at a specified location

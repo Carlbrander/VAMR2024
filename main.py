@@ -188,6 +188,8 @@ class History:
         self.threshold_angles = []
         self.num_keypoints = []
 
+        self.outliers = []
+
         self.texts = []
 
 def load_image(ds, i,args):

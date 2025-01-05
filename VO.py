@@ -1198,29 +1198,29 @@ class VisualOdometry:
 
 
 
-        # print(landmarks_1.shape, descriptors_1.shape, keypoints_1.shape, keypoints_0.shape, st.shape)
+        # # print(landmarks_1.shape, descriptors_1.shape, keypoints_1.shape, keypoints_0.shape, st.shape)
 
-        tracked_keypoints_0 = keypoints_0[:, st == 1]
-        tracked_keypoints_1 = keypoints_1
-        # print(tracked_keypoints_0.shape)
+        # tracked_keypoints_0 = keypoints_0[:, st == 1]
+        # tracked_keypoints_1 = keypoints_1
+        # # print(tracked_keypoints_0.shape)
 
-        # -----------------------------------------------------
-        # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
-        # -----------------------------------------------------
-        # Filter out outliers among the newly tracked points
-        filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
-            tracked_keypoints_0, 
-            tracked_keypoints_1, 
-            # ransacReprojThreshold=0.05,
-            ransacReprojThreshold=0.5,
-            confidence=0.99,
-            maxIters=2000
-        )
-        history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
-        keypoints_1 = keypoints_1[:, fm_inliers_mask] 
-        landmarks_1 = landmarks_1[:, fm_inliers_mask]
-        descriptors_1 = descriptors_1[:, fm_inliers_mask]
-        history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+        # # -----------------------------------------------------
+        # # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
+        # # -----------------------------------------------------
+        # # Filter out outliers among the newly tracked points
+        # filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
+        #     tracked_keypoints_0, 
+        #     tracked_keypoints_1, 
+        #     # ransacReprojThreshold=0.05,
+        #     ransacReprojThreshold=0.5,
+        #     confidence=0.99,
+        #     maxIters=2000
+        # )
+        # history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        # keypoints_1 = keypoints_1[:, fm_inliers_mask] 
+        # landmarks_1 = landmarks_1[:, fm_inliers_mask]
+        # descriptors_1 = descriptors_1[:, fm_inliers_mask]
+        # history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
 
 
 
@@ -1231,12 +1231,18 @@ class VisualOdometry:
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
         if inliers is not None:
+            history.texts.append(f"-3.1 number of outliers: {keypoints_1[:, ~inliers].shape[1]}")
+            history.outliers.append(keypoints_1[:, ~inliers].squeeze())
             inliers = inliers.flatten()
             keypoints_1 = keypoints_1[:, inliers]
             landmarks_1 = landmarks_1[:, inliers]
             descriptors_1 = descriptors_1[:, inliers]
-        history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
+        else:
+            history.texts.append(f"-3.1 number of outliers: NoneType")
+            history.outliers.append(np.array([]))
+        history.texts.append(f"-3.0 landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
         history.camera_position.append(-R_1.T @ t_1)
+
 
         ###Triangulate new Landmarks###
 
