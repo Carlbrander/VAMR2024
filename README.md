@@ -21,10 +21,17 @@ To use the VO pipeline, download all three datasets from the website and include
 
 ### Run VO Pipeline ###
 
-The Pipeline can be run with 
+The Pipeline can be run with: `python main.py`
+- Kitti (default): `python main.py --ds 0`
+- Malaga: `python main.py --ds 1`
+- Parking: `python main.py --ds 2`
+
+You can pass the following arguments to speed up:
+- avoid interactive plotting: `--visualize_dashboard False`
+- only visualize every n'th frame: `--visualize_every_nth_frame 200`
 
 ```
 python main.py
 ```
 
-And using "--ds 1" or "--ds 2" switches between the datasets. (ds 0 is the standard)
+
