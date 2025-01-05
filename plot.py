@@ -376,3 +376,4 @@ def custom_set_diff(arr1, arr2):
     a2_rows = set(map(tuple, arr2))
     unique_rows = np.array(list(a1_rows.difference(a2_rows)))
     return unique_rows
+
