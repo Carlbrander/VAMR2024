@@ -185,14 +185,6 @@ class Plotter:
         
     def plot_2d(self, img, history):
         
-        triangulated_keypoints = history.triangulated_keypoints[-1]
-        keypoints_history = history.keypoints
-
-        if triangulated_keypoints.shape != (0,):
-            difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
-        else:
-            difference = keypoints_history[-1]
-
         #add image to bottom subplot
         ax_2d = self.fig.add_subplot()
         #make sure the image is in color
@@ -205,19 +197,54 @@ class Plotter:
         #         center = tuple(kp.astype(int))
         #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
 
+ 
+        # #plot current keypoints blue
+        # for keypoints_from_history in difference.T:
+        #     center = tuple(keypoints_from_history.astype(int))
+        #     cv2.circle(image_plotting, center, 4, (255, 0, 0), -1)
+
+
+
+
+
+        # self.debug_tracking = []
+        # self.debug_ransac = []
+
+        # self.debug_inliers = []
+        # self.outliers = []
+
+
+
+
+
+        # # purple
+        # for kp in history.debug_tracking[-1].T:
+        #     center = tuple(kp.astype(int))
+        #     cv2.circle(image_plotting, center, 6, (128, 0, 128), -1)
+
+        for kp in history.debug_ransac[-1].T:
+            center = tuple(kp.astype(int))
+            cv2.circle(image_plotting, center, 8, (255, 255, 0), -1)
+
+        for kp in history.debug_inliers[-1].T:
+            center = tuple(kp.astype(int))
+            cv2.circle(image_plotting, center, 6, (0, 0, 0), -1)
+
+        # #plot current keypoints blue
+        # for kp in history.keypoints[-1].T:
+        #     center = tuple(kp.astype(int))
+        #     cv2.circle(image_plotting, center, 4, (255, 0, 0), -1)
+
+
         #plot outliers in green
         if len(history.outliers) != 0:
             for kp in history.outliers[-1].T:
                 center = tuple(kp.astype(int))
                 cv2.circle(image_plotting, center, 3, (0, 255, 0), -1)
-     
-        #plot current keypoints blue
-        for keypoints_from_history in difference.T:
-            center = tuple(keypoints_from_history.astype(int))
-            cv2.circle(image_plotting, center, 4, (255, 0, 0), -1)
+
 
         #plot new keypoints in red
-        for kp in triangulated_keypoints.T:
+        for kp in history.triangulated_keypoints[-1].T:
             center = tuple(kp.astype(int))
             cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
 

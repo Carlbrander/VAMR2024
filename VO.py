@@ -690,6 +690,7 @@ class VisualOdometry:
         
         ###Track keypoints from last frame to this frame using KLT###
         history.texts.append(f"-6. keypoints_0.shape at the beginning of process_image: {keypoints_0.shape}")
+        history.debug_tracking.append(keypoints_0)
         keypoints_1, st = self.track_keypoints(prev_image, image, keypoints_0)
         history.texts.append(f"-5. keypoints_1.shape after track_keypoints : {keypoints_1.shape}")
         st = st.reshape(-1)
@@ -702,27 +703,48 @@ class VisualOdometry:
         history.texts.append(f"-4. landmarks_1.shape after track_keypoints : {landmarks_1.shape}")
 
         ###estimate motion using PnP###
+        history.debug_ransac.append(keypoints_1)
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
         if inliers is not None and inliers.shape != (0,):
-            N = keypoints_1.shape[1]
-            outlier_mask = ~np.isin(np.arange(N), inliers)
+            # N = keypoints_1.shape[1]
+            # outlier_mask = ~np.isin(np.arange(N), inliers)
 
             history.texts.append(f"-3.2 inliers.shape: {inliers.shape}")
-            history.texts.append(f"-3.1 number of outliers: {keypoints_1[:, outlier_mask].shape[1]}")
+            # history.texts.append(f"-3.1 number of outliers: {keypoints_1[:, outlier_mask].shape[1]}")
 
-            history.outliers.append(keypoints_1[:, outlier_mask].squeeze())
+            # history.outliers.append(keypoints_1[:, outlier_mask].squeeze())
             inliers = inliers.flatten()
+
+
+            outliers = custom_set_diff(keypoints_1.T, keypoints_1[:, inliers].T).T
+
+
+
             keypoints_1 = keypoints_1[:, inliers]
             landmarks_1 = landmarks_1[:, inliers]
             descriptors_1 = descriptors_1[:, inliers]
         else:
             history.texts.append(f"-3.1 number of outliers: NoneType")
-            history.outliers.append(np.array([]))
+            # history.outliers.append(np.array([]))
+            outliers = np.array([])
+
+
+
+        history.debug_inliers.append(keypoints_1)
+        history.outliers.append(outliers)
+
+
+
+
+
+
+
+
+
         history.texts.append(f"-3.0 landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
         history.camera_position.append(-R_1.T @ t_1)
 
-        history.keypoints.append(keypoints_1)
 
         ###Triangulate new Landmarks###
 
@@ -736,7 +758,7 @@ class VisualOdometry:
 
 
         ###Update History###
-        # history.keypoints.append(keypoints_2)
+        history.keypoints.append(keypoints_2)
         history.landmarks.append(landmarks_2)
         history.R.append(R_1)
         history.t.append(t_1)
@@ -764,3 +786,11 @@ class VisualOdometry:
 
 
         return keypoints_2, landmarks_2, descriptors_2, R_1, t_1, Hidden_state, history
+
+
+def custom_set_diff(arr1, arr2):
+    # This function assumes that arr1 and arr2 are 2D and that you want to find rows in arr1 not in arr2
+    a1_rows = set(map(tuple, arr1))
+    a2_rows = set(map(tuple, arr2))
+    unique_rows = np.array(list(a1_rows.difference(a2_rows)))
+    return unique_rows

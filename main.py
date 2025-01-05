@@ -40,7 +40,7 @@ def parse_arguments():
     args.use_pose_refinement = False
 
     if args.ds == 0:
-        args.threshold_angle = 0.001
+        args.threshold_angle = 0.03
     elif args.ds == 1:
         args.threshold_angle = 0.01
     elif args.ds == 2:
@@ -203,7 +203,11 @@ class History:
         self.num_keypoints = []
 
         self.texts = []
+
         self.outliers = []
+        self.debug_tracking = []
+        self.debug_ransac = []
+        self.debug_inliers = []
 
 def load_image(ds, i,args):
 
