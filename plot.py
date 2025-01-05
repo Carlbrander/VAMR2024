@@ -76,26 +76,45 @@ class Plotter:
         #create color map
 
         oldest_frame = np.min([candidate[7] for candidate in history.current_Hidden_state if len(candidate) > 0])
-        print(oldest_frame,"   ", newest_frame)
         
-        color_map = np.linspace(0, 255, newest_frame+1-oldest_frame)
+        ### COLOR MAP BY HOW NEW THE HIDDEN STATE IS ###
+        
+        #color_map = np.linspace(0, 255, newest_frame+1-oldest_frame)
+#
+        #for candiate in history.current_Hidden_state:
+        #    if len(candiate) == 0:
+        #        continue
+        #    if len(candiate[3]) == 0:
+        #        continue
+        #    for keypoint in candiate[3].T:
+        #        center = tuple(keypoint.astype(int))
+#
+        #        cv2.circle(image_plotting, center, 3, (255-int(color_map[candiate[7]-oldest_frame]), int(color_map[candiate[7]-oldest_frame]), 0), -1)
+      #
+        #ax_2d.imshow(image_plotting)
+        #ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Old, Green = New)')
+
+        ### COLOR MAP BY ANGLE OF POINT ###
+
+        angles_and_keypoints = history.angles_and_keypoints[-1]
+        #angles and keypoints is a list of arrays with the angle and the keypoint
 
        
-        for candiate in history.current_Hidden_state:
-            if len(candiate) == 0:
-                continue
-            if len(candiate[3]) == 0:
-                continue
-            for keypoint in candiate[3].T:
-                center = tuple(keypoint.astype(int))
-
-            
-            
-                cv2.circle(image_plotting, center, 3, (255-int(color_map[candiate[7]-oldest_frame]), int(color_map[candiate[7]-oldest_frame]), 0), -1)
-        #image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
-
+        #colors red to green
+        #angle of 0.03 = 255 (red)
+        #angle of 0 = 0 (green)
+        
+        for angle, keypoint in angles_and_keypoints:
+            print("Angle: ", angle)
+            print("Keypoint: ", keypoint)
+            center = tuple(keypoint.astype(int))
+            green_color = 255-int(angle*255/0.03)
+            red_color = int(angle*255/0.03)
+            print("Color: ", red_color, green_color)
+            cv2.circle(image_plotting, center, 3, (red_color, green_color, 0), -1)
         ax_2d.imshow(image_plotting)
-        ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Old, Green = New)')
+        ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Angle 0.1, Green = Angle 0)')
+
 
 
 

@@ -419,7 +419,10 @@ class VisualOdometry:
 
         all_angles = []
         all_angles_after = []
-        
+
+        angles_and_keypoints = []
+
+       
         if Hidden_state:
             for candidate_i, candidate in enumerate(Hidden_state[:-1]):
                 angles = []  # Reset angles for each candidate
@@ -439,12 +442,13 @@ class VisualOdometry:
                 if baseline < self.min_baseline:
                     continue
 
-                for landmark in landmarks.T:
+                for i,landmark in enumerate(landmarks.T):
                     # Calculate bearing angle between the landmark and both camera views
                     angle = self.calculate_angle(landmark, candidate[2], candidate[5])
                     angles.append(angle)   
                     all_angles.append(angle)
                     all_angles_after.append(angle)
+                    angles_and_keypoints.append([angle, candidate[3][:, i]])
                     #sort by biggest angle first
                 angles = np.array(angles)
                 angles = np.sort(angles)[::-1]
@@ -477,6 +481,7 @@ class VisualOdometry:
         #create histogram of all angles before removing the ones with large enough angles
         history.angles_before.append(all_angles)
         history.angles_after.append(all_angles_after)
+        history.angles_and_keypoints.append(angles_and_keypoints)
 
 
         return new_keypoints, new_landmarks, new_descriptors, history

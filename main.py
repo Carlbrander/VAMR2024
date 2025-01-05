@@ -205,6 +205,7 @@ class History:
         self.angles_before = []
         self.angles_after = []
         self.current_Hidden_state = []
+        self.angles_and_keypoints = []
 
         self.texts = []
 
