@@ -808,7 +808,7 @@ class VisualOdometry:
         history.texts.append(f"Number of Keypoints in Hidden State before Tracking: {sum_hidden_state_landmarks}")
 
         ### Track and Update all Hidden States ###
-        Hidden_state = self.track_and_update_hidden_state(Hidden_state, R_1, t_1)
+        #Hidden_state = self.track_and_update_hidden_state(Hidden_state, R_1, t_1)
 
 
         #print cummulative number of keypoints in hidden state
@@ -1005,25 +1005,15 @@ class VisualOdometry:
         # --- Track points via KLT ---
         matched_points_candidate, validity_candidate = self.track_keypoints(prev_image, image, self.C)
         validity_candidate = validity_candidate.reshape(-1)
-        #remove keypoints that are not tracked
-        matched_points_valid_candidate = self.C[:, validity_candidate == 1]
 
-        # --- Estimate fundamental matrix; get inliers (placeholder) ---
-        # Replace with a real fundamental matrix estimation if needed, e.g. using OpenCV.
-        # Here we just assume estimateFundamentalMatrix returns an inlier mask in inliersIndex.
-        # E.g. with OpenCV: F, mask = cv2.findFundamentalMat(...)
-        # For brevity, we treat `validity_candidate` as a boolean array and `inliersIndex` likewise.
-        # ----------------------------------------------------------------
-        # Pseudocode for fundamental matrix estimation:
-        # F, mask = cv2.findFundamentalMat(
-        #     self.C[:, validity_candidate].T,
-        #     matched_points_valid_candidate,
-        #     cv2.FM_RANSAC, 0.05, 0.99, 500
-        # )
-        # inliersIndex = mask.ravel().astype(bool)
-        # ----------------------------------------------------------------
-        # Here we'll just pretend all are inliers:
-        inliersIndex = np.ones(matched_points_valid_candidate.shape[1], dtype=bool)
+        p1 = self.C[:, validity_candidate == 1].T
+        p2 = matched_points_candidate.T
+        F, inliersIndex = cv2.findFundamentalMat(
+           p1, p2,
+            cv2.FM_RANSAC, 0.05, 0.99, 500
+        )
+
+        inliersIndex = inliersIndex.reshape(-1)
 
         # Update self.F, self.T with inliers
         self.F = self.F[:, validity_candidate == 1]
@@ -1032,10 +1022,11 @@ class VisualOdometry:
         self.T = self.T[:, inliersIndex == 1]
 
         # --- Calculate angles ---
-        num_candidate = matched_points_valid_candidate.shape[1]
+        matched_points_candidate = matched_points_candidate[:, inliersIndex == 1]
+        num_candidate = matched_points_candidate.shape[1]
         # p_current_homo in shape (3, num_candidate): (u, v, 1) but note
         # matched_points_valid_candidate is (row, col). We flip again to (u, v).
-        p_current_homo = np.vstack((matched_points_valid_candidate, np.ones((1, num_candidate))))
+        p_current_homo = np.vstack((matched_points_candidate, np.ones((1, num_candidate))))
         p_current_normalized_homo = np.linalg.inv(K) @ p_current_homo
 
         p_first_normalized_homo = np.zeros_like(p_current_normalized_homo)
@@ -1094,8 +1085,8 @@ class VisualOdometry:
 
             # Check if point is in front of the camera and within depth limits
             P_est_local_coord = np.linalg.inv(T_W_C) @ P_est
-            if (abs(P_est_local_coord[2]) > self.min_depth and 
-                abs(P_est_local_coord[2]) < self.max_depth):
+            if (P_est_local_coord[2] > self.min_depth and 
+                P_est_local_coord[2] < self.max_depth):
                 # Append to self.X
                 self.X = np.hstack((
                     self.X, P_est[:3]))
@@ -1113,7 +1104,7 @@ class VisualOdometry:
         # We want those *not* appended, so we do ~whehter_append:
         keep_idx = ~whehter_append
 
-        self.C = matched_points_valid_candidate[:, keep_idx == 1]
+        self.C = matched_points_candidate[:, keep_idx == 1]
         self.F = self.F[:, keep_idx == 1]
         self.T = self.T[:, keep_idx == 1]
         self.num_new = np.append(self.num_new, num_added)
@@ -1149,14 +1140,14 @@ class VisualOdometry:
 
         ###Triangulate new Landmarks###
 
+        if self.C.size != 0:
+            self.update_landmarks(0, 0, image, self.K, 0, prev_image, keypoints_2, new_keypoints)
+
         # Adapt Parameter for Landmark Detection dynamically #
         self.adapt_parameters(Hidden_state, landmarks_1)
         history.texts.append(f"-1. self.threshold_angle: {self.threshold_angle}")
 
         keypoints_2, landmarks_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, new_keypoints = self.add_new_landmarks(keypoints_1, landmarks_1, R_1, t_1, Hidden_state, history)
-
-        if self.C.size != 0:
-            self.update_landmarks(0, 0, image, self.K, 0, prev_image, keypoints_2, new_keypoints)
 
         #keeping this in case we want to fix the bundle adjustment
         R_2 = R_1
