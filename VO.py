@@ -704,11 +704,22 @@ class VisualOdometry:
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
-        inliers = inliers.flatten()
-        keypoints_1 = keypoints_1[:, inliers]
-        landmarks_1 = landmarks_1[:, inliers]
-        history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
-        descriptors_1 = descriptors_1[:, inliers]
+        if inliers is not None and inliers.shape != (0,):
+            N = keypoints_1.shape[1]
+            outlier_mask = ~np.isin(np.arange(N), inliers)
+
+            history.texts.append(f"-3.2 inliers.shape: {inliers.shape}")
+            history.texts.append(f"-3.1 number of outliers: {keypoints_1[:, outlier_mask].shape[1]}")
+
+            history.outliers.append(keypoints_1[:, outlier_mask].squeeze())
+            inliers = inliers.flatten()
+            keypoints_1 = keypoints_1[:, inliers]
+            landmarks_1 = landmarks_1[:, inliers]
+            descriptors_1 = descriptors_1[:, inliers]
+        else:
+            history.texts.append(f"-3.1 number of outliers: NoneType")
+            history.outliers.append(np.array([]))
+        history.texts.append(f"-3.0 landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
         history.camera_position.append(-R_1.T @ t_1)
 
         ###Triangulate new Landmarks###

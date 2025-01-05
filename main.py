@@ -203,6 +203,7 @@ class History:
         self.num_keypoints = []
 
         self.texts = []
+        self.outliers = []
 
 def load_image(ds, i,args):
 

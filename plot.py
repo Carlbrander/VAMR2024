@@ -188,6 +188,11 @@ class Plotter:
         triangulated_keypoints = history.triangulated_keypoints[-1]
         keypoints_history = history.keypoints
 
+        if triangulated_keypoints.shape != (0,):
+            difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
+        else:
+            difference = keypoints_history[-1]
+
         #add image to bottom subplot
         ax_2d = self.fig.add_subplot(312)
         #make sure the image is in color
@@ -200,13 +205,14 @@ class Plotter:
         #         center = tuple(kp.astype(int))
         #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
 
-        # #plot outliers in green
-        # for kp in history.outliers[-1].T:
-        #     center = tuple(kp.astype(int))
-        #     cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
+        #plot outliers in green
+        if len(history.outliers) != 0:
+            for kp in history.outliers[-1].T:
+                center = tuple(kp.astype(int))
+                cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
      
         #plot current keypoints blue
-        for keypoints_from_history in keypoints_history[-1].T:
+        for keypoints_from_history in difference.T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
 
@@ -277,7 +283,7 @@ class Plotter:
         wrapped_texts = [wrap_text(text, width=90) for text in history.texts]
         text_str = '\n'.join(wrapped_texts)
 
-        ax.text(-2, 20, text_str, fontsize=10, color='black', ha='left', va='top')
+        ax.text(-2, 9.5, text_str, fontsize=10, color='black', ha='left', va='top')
         # ax.text(0.2, -9.5, text_str, fontsize=12, color='black', ha='left', va='top')
 
         # Optional: Add labels and title
