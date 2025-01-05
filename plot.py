@@ -50,7 +50,7 @@ class Plotter:
         self.fig.canvas.draw()
         # plt.show(block=False)
         # plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)), compress='none')
+        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)))
 
         # # Pause loop
         # while self.paused[0]:
