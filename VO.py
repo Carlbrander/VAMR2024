@@ -202,7 +202,7 @@ class VisualOdometry:
                     self.K, 
                     distCoeffs=None,
                     iterationsCount=2000,
-                    reprojectionError=5.0,
+                    reprojectionError=1.0,
                     confidence=0.999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
@@ -254,7 +254,7 @@ class VisualOdometry:
         return landmarks_final
 
     @time_function
-    def track_keypoints(self, prev_image, image, keypoints_0, method='FAST', options=None):
+    def track_keypoints(self, prev_image, image, keypoints_0, method='SIFT', options=None):#, 'contrastThreshold': 0.01}):
 
         def genKeypoints(img, method='SIFT', opts=None):
             if opts is None:
@@ -315,7 +315,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[-3:-1]:
+            for candidate in Hidden_state[-5:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
@@ -370,7 +370,7 @@ class VisualOdometry:
 
         indices_to_keep = np.ones(num_keypoints, dtype=bool)
 
-        for candidate in Hidden_state[-3:-1]:
+        for candidate in Hidden_state[:-1]:
             if len(candidate) == 0:
                 continue
 
@@ -408,7 +408,7 @@ class VisualOdometry:
         new_landmarks = []
         
         if Hidden_state:
-            for candidate_i, candidate in enumerate(Hidden_state[-3:-1]):
+            for candidate_i, candidate in enumerate(Hidden_state[:-1]):
                 angles = []  # Reset angles for each candidate
 
                 # Triangulate new landmarks
@@ -1049,7 +1049,7 @@ class VisualOdometry:
         
 
         landmarks_count = []
-        for candidate in Hidden_state[-3:-1]:
+        for candidate in Hidden_state[:-1]:
             #if candidate is an empty list:
             if len(candidate) == 0:
                 landmarks_count.append(0)
@@ -1213,29 +1213,29 @@ class VisualOdometry:
 
 
 
-        # # print(landmarks_1.shape, descriptors_1.shape, keypoints_1.shape, keypoints_0.shape, st.shape)
+        # print(landmarks_1.shape, descriptors_1.shape, keypoints_1.shape, keypoints_0.shape, st.shape)
 
-        # tracked_keypoints_0 = keypoints_0[:, st == 1]
-        # tracked_keypoints_1 = keypoints_1
-        # # print(tracked_keypoints_0.shape)
+        tracked_keypoints_0 = keypoints_0[:, st == 1]
+        tracked_keypoints_1 = keypoints_1
+        # print(tracked_keypoints_0.shape)
 
-        # # -----------------------------------------------------
-        # # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
-        # # -----------------------------------------------------
-        # # Filter out outliers among the newly tracked points
-        # filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
-        #     tracked_keypoints_0, 
-        #     tracked_keypoints_1, 
-        #     # ransacReprojThreshold=0.05,
-        #     ransacReprojThreshold=0.5,
-        #     confidence=0.99,
-        #     maxIters=2000
-        # )
-        # history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
-        # keypoints_1 = keypoints_1[:, fm_inliers_mask] 
-        # landmarks_1 = landmarks_1[:, fm_inliers_mask]
-        # descriptors_1 = descriptors_1[:, fm_inliers_mask]
-        # history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+        # -----------------------------------------------------
+        # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
+        # -----------------------------------------------------
+        # Filter out outliers among the newly tracked points
+        filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
+            tracked_keypoints_0, 
+            tracked_keypoints_1, 
+            # ransacReprojThreshold=0.05,
+            ransacReprojThreshold=0.5,
+            confidence=0.99,
+            maxIters=2000
+        )
+        history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        keypoints_1 = keypoints_1[:, fm_inliers_mask] 
+        landmarks_1 = landmarks_1[:, fm_inliers_mask]
+        descriptors_1 = descriptors_1[:, fm_inliers_mask]
+        history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
 
 
 
