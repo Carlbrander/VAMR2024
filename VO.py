@@ -227,6 +227,20 @@ class VisualOdometry:
 
             # delete the keypoints that were not tracked
             new_Hidden_state = [Hidden_state[0][:, st == 1], Hidden_state[1][:,:, st == 1], Hidden_state[2][:, :, st == 1], tracked_hidden_features, Hidden_state[4][:, st == 1]]
+
+            Hidden_state = [Hidden_state[0][:, st == 1], Hidden_state[1][:,:, st == 1], Hidden_state[2][:, :, st == 1], Hidden_state[3][:, st == 1], Hidden_state[4][:, st == 1]]
+
+            # # filter new hidden keypoints via fundamental matrix RANSAC
+            # inliers_old ,inliers_new, mask = self.filter_keypoints_via_fundamental_ransac(
+            #     Hidden_state[3], 
+            #     new_Hidden_state[3],
+            #     ransacReprojThreshold=0.5,
+            #     confidence=0.99,
+            #     maxIters=2000
+            # )
+
+            # Update the Hidden state with the filtered keypoints
+            # new_Hidden_state = [new_Hidden_state[0][:, mask], new_Hidden_state[1][:,:, mask], new_Hidden_state[2][:, :, mask], new_Hidden_state[3][:, mask], new_Hidden_state[4][:, mask]]
         
 
         return new_Hidden_state
@@ -250,7 +264,7 @@ class VisualOdometry:
                 )
 
                 # Calculate the angle between the two camera poses
-                angle = self.calculate_angle(landmark, t_1, Hidden_state[2][:, :, i])
+                angle = self.calculate_angle(landmark, R_1, t_1, Hidden_state[1][:,:,i], Hidden_state[2][:, :, i])
 
                 # Check if the angle is over the threshold
                 if angle > self.threshold_angle:
@@ -267,11 +281,11 @@ class VisualOdometry:
 
         return new_keypoints, new_landmarks, new_descriptors, triangulated_idx
 
-    def calculate_angle(self, landmark, t_1, t_2):
+    def calculate_angle(self, landmark,R_1, t_1, R_2, t_2):
         #get the direction vector from the first observation camera pose to the landmark
-        direction_1 = landmark - t_1
+        direction_1 = landmark + R_1.T @ t_1
         #get the direction vector from the current camera pose to the landmark
-        direction_2 = landmark - t_2
+        direction_2 = landmark + R_2.T @ t_2
 
         #normalize the vectors
         direction_1 = direction_1 / np.linalg.norm(direction_1)
@@ -366,11 +380,11 @@ class VisualOdometry:
         """#####   Triangulate new Landmarks   #####"""
         triangulated_keypoints, triangulated_landmarks, triangulated_descriptors, triangulated_idx = self.triangulate_new_landmarks(Hidden_state, R_1, t_1)
         if len(triangulated_idx) > 0:
-            history.texts.append(f"Number of new landmarks after triangulation that pass the Angle threshold: {len(triangulated_idx)}")
-            print(f"Number of new landmarks after triangulation that pass the Angle threshold: {len(triangulated_idx)}")
+            history.texts.append(f"Number of new landmarks that pass the Angle threshold: {len(triangulated_idx)}")
+            print(f"Number of new landmarks that pass the Angle threshold: {len(triangulated_idx)}")
         else: 
-            history.texts.append(f"Number of new landmarks after triangulation that pass the Angle threshold: is zero")
-            print(f"Number of new landmarks after triangulation that pass the Angle threshold: is zero")
+            history.texts.append(f"Number of new landmarks that pass the Angle threshold: is zero")
+            print(f"Number of new landmarks that pass the Angle threshold: is zero")
 
         # Remove the triangulated features from the Hidden state
         if triangulated_idx:
@@ -379,8 +393,8 @@ class VisualOdometry:
                             np.delete(Hidden_state[2], triangulated_idx, axis=2), 
                             np.delete(Hidden_state[3], triangulated_idx, axis=1),
                             np.delete(Hidden_state[4], triangulated_idx, axis=1)]
-        history.texts.append(f"Number of Keypoints in Hidden States after removing triangulated keypoints: {Hidden_state[0].shape[1]}")
-        print("Number of Keypoints in Hidden States after removing triangulated keypoints:", Hidden_state[0].shape[1])
+        history.texts.append(f"Number of Hidden States after removing triangulated keypoints: {Hidden_state[0].shape[1]}")
+        print("Number of Hidden States after removing triangulated keypoints:", Hidden_state[0].shape[1])
         
 
 
@@ -397,27 +411,18 @@ class VisualOdometry:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
-        # # Reduce number of new points if they are too many (more than 10% of the currently tracked points)
-        # print(f"2. Number of the triangulated_landmarks before reducing number ('triangulated_landmarks.shape[1]'): {triangulated_landmarks.shape[1]}")
-        # print(f"2. landmarks_1.shape[1]: {landmarks_1.shape[1]}")
-
-        # if landmarks_1.shape[1] < 100:
-        #     num_points_to_keep = 100
-        # else:
-        #     num_points_to_keep = 50
-        # if triangulated_landmarks.shape[1] > num_points_to_keep:
-        #     history.texts.append("Too many new landmarks, reducing number")
-        #     # num_points_to_keep = int(100)
-        #     indices_to_keep = np.random.choice(triangulated_landmarks.shape[1], num_points_to_keep, replace=False)
-        #     triangulated_landmarks = triangulated_landmarks[:, indices_to_keep]
-        #     triangulated_keypoints = triangulated_keypoints[:, indices_to_keep]
-        #     triangulated_descriptors = triangulated_descriptors[:, indices_to_keep]
-        #     #update the Hidden state with the reduced number of new landmarks
-        #     Hidden_state[-1][0] = triangulated_keypoints
-        #     Hidden_state[-1][3] = triangulated_keypoints
-        #     Hidden_state[-1][6] = triangulated_descriptors
-
-        # history.texts.append(f"Number of the triangulated_landmarks after reducing number: {triangulated_landmarks.shape[1]}")
+        # # Reduce the number of new landmarks to 3 times the number of current landmarks
+        # if triangulated_landmarks.shape[1] > 3 * landmarks_1.shape[1]:
+        #     history.texts.append(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
+        #     print(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
+        #     # select 2*landmarks_1.shape[1] random indices
+        #     random_indices = np.random.choice(triangulated_landmarks.shape[1], 3 * landmarks_1.shape[1], replace=False)
+        #     triangulated_landmarks = triangulated_landmarks[:, random_indices]
+        #     triangulated_keypoints = triangulated_keypoints[:, random_indices]
+        #     triangulated_descriptors = triangulated_descriptors[:, random_indices]
+        #     history.texts.append(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
+        #     print(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
+            
 
         landmarks_2 = np.hstack((landmarks_1, triangulated_landmarks))
         keypoints_2 = np.hstack((keypoints_1, triangulated_keypoints))
@@ -426,7 +431,6 @@ class VisualOdometry:
         history.texts.append(f"keypoints_2.shape at the end of add_new_landmarks: {keypoints_2.shape}")
         
         return keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
-
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
@@ -559,29 +563,29 @@ class VisualOdometry:
 
 
 
-        tracked_keypoints_0 = keypoints_0[:, st == 1]
-        tracked_keypoints_1 = keypoints_1
-        # print(tracked_keypoints_0.shape)
+        # tracked_keypoints_0 = keypoints_0[:, st == 1]
+        # tracked_keypoints_1 = keypoints_1
+        # # print(tracked_keypoints_0.shape)
 
-        # -----------------------------------------------------
-        # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
-        # -----------------------------------------------------
-        # Filter out outliers among the newly tracked points
-        filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
-            tracked_keypoints_0, 
-            tracked_keypoints_1, 
-            # ransacReprojThreshold=0.05,
-            ransacReprojThreshold=0.5,
-            confidence=0.99,
-            maxIters=2000
-        )
-        history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
-        print(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
-        keypoints_1 = keypoints_1[:, fm_inliers_mask] 
-        landmarks_1 = landmarks_1[:, fm_inliers_mask]
-        descriptors_1 = descriptors_1[:, fm_inliers_mask]
-        history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
-        print(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+        # # -----------------------------------------------------
+        # # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
+        # # -----------------------------------------------------
+        # # Filter out outliers among the newly tracked points
+        # filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
+        #     tracked_keypoints_0, 
+        #     tracked_keypoints_1, 
+        #     # ransacReprojThreshold=0.05,
+        #     ransacReprojThreshold=0.5,
+        #     confidence=0.99,
+        #     maxIters=2000
+        # )
+        # history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        # print(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        # keypoints_1 = keypoints_1[:, fm_inliers_mask] 
+        # landmarks_1 = landmarks_1[:, fm_inliers_mask]
+        # descriptors_1 = descriptors_1[:, fm_inliers_mask]
+        # history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+        # print(f"-401. number of filtered landmarks : {landmarks_1.shape}")
 
 
 

@@ -83,32 +83,50 @@ def dataset_setup(args):
     """####   Tuning parameters for different datasets   ####"""
     # Parking:
     if ds == 2:
-        args.threshold_angle = 0.001
-        args.nonmaximum_supression_radius = 5
-        args.max_num_new_keypoints = 500
+        args.threshold_angle = 0.09
+        args.nonmaximum_supression_radius = 3
+        args.max_num_new_keypoints = 1000
         
         args.RANSAC_iterationsCount = 2000
-        args.RANSAC_reprojectionError= 1.0
+        args.RANSAC_reprojectionError= 1
         args.RANSAC_confidence = 0.9999
         args.KLT_window_size = 15
         args.KLT_max_level = 3
-        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.01)
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 250, 0.001)
 
 
         args.bootstrap_frames = [0, 10]
 
     # KITTI:
     elif ds == 0:
-        args.threshold_angle = 0.001
-        args.nonmaximum_supression_radius = 2
-        args.max_num_new_keypoints = 1000
+        args.threshold_angle = 0.1
+        args.nonmaximum_supression_radius = 4
+        args.max_num_new_keypoints = 3000
         
         args.RANSAC_iterationsCount = 5000
-        args.RANSAC_reprojectionError= 0.5
-        args.RANSAC_confidence = 0.9999
-        args.KLT_window_size = 18
-        args.KLT_max_level = 3
-        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 350, 0.01)
+        args.RANSAC_reprojectionError= 5
+        args.RANSAC_confidence = 0.999
+        args.KLT_window_size = 15
+        args.KLT_max_level = 4
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 500, 0.001)
+    
+    # Malaga:
+    elif ds == 1:
+        args.threshold_angle = 0.07
+        args.nonmaximum_supression_radius = 3
+        args.max_num_new_keypoints = 2000
+        
+        args.RANSAC_iterationsCount = 5000
+        args.RANSAC_reprojectionError= 4
+        args.RANSAC_confidence = 0.999
+        args.KLT_window_size = 15
+        args.KLT_max_level = 4
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 250, 0.001)
+
+        args.bootstrap_frames = [0, 7]
+
+    else:
+        assert False
 
 
     if ds == 0:
@@ -163,7 +181,7 @@ def dataset_setup(args):
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
     elif ds == 1:
-        bootstrap_frames = [0, 2]
+        bootstrap_frames = args.bootstrap_frames
         img0 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[0]])), cv2.COLOR_BGR2GRAY)
         img1 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[1]])), cv2.COLOR_BGR2GRAY)
         args.malaga_path = malaga_path
@@ -286,15 +304,18 @@ if __name__ == "__main__":
 
     #Bootstrapping
     args, keypoints, landmarks, R, t, descriptors = bootstrapping(args)
-    scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
-    args.gt_camera_position = []
-    offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
-    for i in range(len(args.gt_t)):
-        # t_new = -R @ t
-        args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
-        args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
+        
+    if args.ds != 1:
+        scale = getScale(args.gt_t[args.bootstrap_frames[0]] - args.gt_t[args.bootstrap_frames[1]], t)
+        args.gt_camera_position = []
+    
+        offset = np.copy(args.gt_t[args.bootstrap_frames[0]])
+        for i in range(len(args.gt_t)):
+            # t_new = -R @ t
+            args.gt_t[i] = args.gt_R[args.bootstrap_frames[0]] @ (args.gt_t[i] - offset)
+            args.gt_camera_position.append(np.array([args.gt_t[i][0], args.gt_t[i][2]]))
 
-    args.gt_camera_position = args.gt_camera_position/scale
+        args.gt_camera_position = args.gt_camera_position/scale
 
 
     #Initialize History
