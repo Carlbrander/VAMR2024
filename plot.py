@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 import cv2
@@ -9,7 +12,7 @@ from VO import time_function
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
-        self.fig = plt.figure(figsize=(18, 10))
+        self.fig = plt.figure(figsize=(10.8, 8))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -29,11 +32,11 @@ class Plotter:
 
         # Plot Dashboard
         self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
-        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        # self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
-        self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
-        self.plot_text(img, history, current_iteration)
-        self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        # self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
+        # self.plot_text(img, history, current_iteration)
+        # self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -49,14 +52,14 @@ class Plotter:
         self.fig.canvas.draw()
         # plt.show(block=False)
         # plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)), bbox_inches='tight', compress='none')
 
-        # Pause loop
-        while self.paused[0]:
-            plt.pause(0.1)
+        # # Pause loop
+        # while self.paused[0]:
+        #     plt.pause(0.1)
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
-        ax_3d = self.fig.add_subplot(231)
+        ax_3d = self.fig.add_subplot(211)
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
@@ -188,7 +191,7 @@ class Plotter:
         keypoints_history = history.keypoints
 
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(234)
+        ax_2d = self.fig.add_subplot(212)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
