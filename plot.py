@@ -8,11 +8,10 @@ import numpy as np
 import platform
 import textwrap
 
-from VO import time_function
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
-        self.fig = plt.figure(figsize=(10.8, 8))
+        self.fig = plt.figure(figsize=(11, 8))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -24,7 +23,6 @@ class Plotter:
         # Pause logic
         self.paused = [False]
 
-    @time_function
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
         # Clear the figure to update it
         self.fig.clf()
@@ -52,7 +50,7 @@ class Plotter:
         self.fig.canvas.draw()
         # plt.show(block=False)
         # plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)), bbox_inches='tight', compress='none')
+        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)), compress='none')
 
         # # Pause loop
         # while self.paused[0]:
