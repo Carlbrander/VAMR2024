@@ -987,7 +987,7 @@ class VisualOdometry:
 
 
         return landmarks_positive, keypoints_positive, descriptors_positive
-    def update_landmarks(self, B, KLT_tracker_C, image, K, hyper_paras, prev_image, keypoints_0, new_keypoints):
+    def update_landmarks(self, image, K, prev_image):
         """
         Python equivalent of the MATLAB function update_landmarks(S,B,KLT_tracker_C,image,K,hyper_paras)
         where `S` in MATLAB is replaced by `self` in Python.
@@ -1141,7 +1141,7 @@ class VisualOdometry:
         ###Triangulate new Landmarks###
 
         if self.C.size != 0:
-            self.update_landmarks(0, 0, image, self.K, 0, prev_image, keypoints_2, new_keypoints)
+            self.update_landmarks(image, self.K, prev_image)
 
         # Adapt Parameter for Landmark Detection dynamically #
         self.adapt_parameters(Hidden_state, landmarks_1)
@@ -1151,9 +1151,7 @@ class VisualOdometry:
 
         #keeping this in case we want to fix the bundle adjustment
         R_2 = R_1
-        t_2 = t_1
-        landmarks_3 = landmarks_2
-        keypoints_3 = keypoints_2        
+        t_2 = t_1     
 
         ###Update History###
         history.keypoints.append(self.P)
