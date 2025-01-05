@@ -333,7 +333,7 @@ class VisualOdometry:
         new_Hidden_state = []
         #check if Hidden_state is not just an emtpy list od lists
         if Hidden_state:
-            for candidate in Hidden_state[:-1]:
+            for candidate in Hidden_state[-2:-1]:
                 if len(candidate) == 0:
                     new_Hidden_state.append(candidate)
                     continue
