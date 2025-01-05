@@ -61,12 +61,14 @@ class VisualOdometry:
 
         if not self.use_sift:
             # Detect keypoints using Shi-Tomasi
-            keypoints = cv2.goodFeaturesToTrack(gray, maxCorners = 800,
+            keypoints = cv2.goodFeaturesToTrack(gray, maxCorners = 1000,
                                     qualityLevel = 0.01,
                                     minDistance = 7,
-                                    blockSize = 7)
+                                    blockSize = 2)
             
             keypoints = keypoints.reshape(-1, 2).T
+            #switch x and y coordinates of the keypoints
+            keypoints = keypoints[[1, 0], :]
             descriptors = describeKeypoints(gray, keypoints, self.descriptor_radius)
 
         if self.use_sift:
@@ -187,7 +189,7 @@ class VisualOdometry:
                     self.K, 
                     distCoeffs=None,
                     iterationsCount=200000,
-                    reprojectionError=3.0,
+                    reprojectionError=2.0,
                     confidence=0.9999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
@@ -271,9 +273,9 @@ class VisualOdometry:
         image,
         keypoints_0.T.astype(np.float32),
         None,
-        winSize=(18, 18),
-        maxLevel=4,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.0001))
+        winSize=(31, 31),
+        maxLevel=3,
+        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.03))
 
 
 
@@ -701,7 +703,14 @@ class VisualOdometry:
         descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
 
-        ###Triangulate new Landmarks###
+        ###Adapt Angle Threshold and Number of Keypoints dynamically###
+        #tries to keep it between 200 an 500 keypoints
+
+        
+        
+        self.threshold_angle = np.maximum(0.1,np.minimum(0.3, landmarks_1.shape[1] / 1400))
+
+
 
 
         # Adapt Parameter for Landmark Detection dynamically #

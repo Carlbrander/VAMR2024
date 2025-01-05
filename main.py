@@ -32,15 +32,22 @@ def parse_arguments():
 
     #harris detector parameters (from exercise 3)
     args.corner_patch_size = 9
-    args.harris_kappa = 0.08
+    args.harris_kappa = 0.04
     args.nonmaximum_supression_radius = 8
     args.descriptor_radius = 9
     args.match_lambda = 4
-    args.use_BA = False
-    args.use_pose_refinement = False
 
-    
-    args.threshold_angle = 0.3
+    if args.ds == 2:
+        args.harris_kappa = 0.02
+        args.nonmaximum_supression_radius = 5
+        args.descriptor_radius = 9
+        args.match_lambda = 1
+        
+
+    if args.use_sift == False:
+        args.threshold_angle = 0.1
+    else:
+        args.threshold_angle = 0.3
     
 
 
@@ -152,7 +159,10 @@ def dataset_setup(args):
         img1 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[1]])), cv2.COLOR_BGR2GRAY)
         args.malaga_path = malaga_path
     elif ds == 2:
-        bootstrap_frames = [0, 10]
+        if args.use_sift:
+            bootstrap_frames = [0, 11]
+        else:
+            bootstrap_frames = [0, 12]
         img0 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[0]:05d}.png')), cv2.COLOR_BGR2GRAY)
         img1 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[1]:05d}.png')), cv2.COLOR_BGR2GRAY)
         args.parking_path = parking_path

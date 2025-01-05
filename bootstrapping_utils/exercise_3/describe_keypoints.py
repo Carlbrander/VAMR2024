@@ -37,9 +37,6 @@ def describeKeypoints(img, keypoints, r):
         # Bounds checking
         if (kp[0] - r < 0 or kp[0] + r + 1 > pad_shape[0] or 
             kp[1] - r < 0 or kp[1] + r + 1 > pad_shape[1]):
-            print(f"Keypoint {i} out of bounds:")
-            print(f"Keypoint coordinates: {kp}")
-            print(f"Padded image shape: {pad_shape}")
             continue  # Skip this keypoint
         
         patch = padded[
