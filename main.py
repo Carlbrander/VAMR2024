@@ -32,9 +32,6 @@ def parse_arguments():
     args.max_depth = 100
 
 
-    args.threshold_angle = 0.1 # only for the start anyway, adapted dynamically
-    args.min_baseline = 0.0 # only for the start anyway, adapted dynamically
-
     return args
 
 def read_poses_kitti(file_path):
@@ -83,6 +80,37 @@ def dataset_setup(args):
 
     ds = args.ds
 
+    """####   Tuning parameters for different datasets   ####"""
+    # Parking:
+    if ds == 2:
+        args.threshold_angle = 0.001
+        args.nonmaximum_supression_radius = 5
+        args.max_num_new_keypoints = 500
+        
+        args.RANSAC_iterationsCount = 2000
+        args.RANSAC_reprojectionError= 1.0
+        args.RANSAC_confidence = 0.9999
+        args.KLT_window_size = 15
+        args.KLT_max_level = 3
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.01)
+
+
+        args.bootstrap_frames = [0, 10]
+
+    # KITTI:
+    elif ds == 0:
+        args.threshold_angle = 0.001
+        args.nonmaximum_supression_radius = 2
+        args.max_num_new_keypoints = 1000
+        
+        args.RANSAC_iterationsCount = 5000
+        args.RANSAC_reprojectionError= 0.5
+        args.RANSAC_confidence = 0.9999
+        args.KLT_window_size = 18
+        args.KLT_max_level = 3
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 350, 0.01)
+
+
     if ds == 0:
         # need to set kitti_path to folder containing "05" and "poses"
         kitti_path = "data/kitti/"
@@ -130,7 +158,7 @@ def dataset_setup(args):
     # need to set bootstrap_frames
     if ds == 0:
         start = 0
-        bootstrap_frames = [start, start + 2] # having more than 2 frames in between brakes ground thruth calculation
+        bootstrap_frames = [start, start + 7] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
@@ -140,7 +168,7 @@ def dataset_setup(args):
         img1 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[1]])), cv2.COLOR_BGR2GRAY)
         args.malaga_path = malaga_path
     elif ds == 2:
-        bootstrap_frames = [0, 2]
+        bootstrap_frames = args.bootstrap_frames
         img0 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[0]:05d}.png')), cv2.COLOR_BGR2GRAY)
         img1 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[1]:05d}.png')), cv2.COLOR_BGR2GRAY)
         args.parking_path = parking_path

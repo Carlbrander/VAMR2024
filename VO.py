@@ -22,17 +22,25 @@ class VisualOdometry:
         """
         Initialize the Visual Odometry system with basic components
         """
-       
+        # Tuning parameters
+        self.threshold_angle = args.threshold_angle
+        self.nonmaximum_suppression_radius = args.nonmaximum_supression_radius
+
+        self.RANSAC_iterationsCount = args.RANSAC_iterationsCount
+        self.RANSAC_reprojectionError = args.RANSAC_reprojectionError
+        self.RANSAC_confidence = args.RANSAC_confidence
+        self.KLT_winSize = args.KLT_window_size
+        self.KLT_max_level = args.KLT_max_level
+        self.KLT_criteria = args.KLT_criteria
+
+        self.num_keypoints = args.max_num_new_keypoints
+
         # Propagate arguments
         self.corner_patch_size = args.corner_patch_size
         self.harris_kappa = args.harris_kappa
-        self.num_keypoints = args.num_keypoints
-        self.nonmaximum_suppression_radius = args.nonmaximum_supression_radius
         self.descriptor_radius = args.descriptor_radius
         self.match_lambda = args.match_lambda
         self.K = args.K
-        self.threshold_angle = args.threshold_angle
-        self.min_baseline = args.min_baseline
 
         self.use_sift = args.use_sift
 
@@ -114,9 +122,9 @@ class VisualOdometry:
                     keypoints_1.astype(np.float32).T, 
                     self.K, 
                     distCoeffs=None,
-                    iterationsCount=2000,
-                    reprojectionError=2.0,
-                    confidence=0.999)
+                    iterationsCount = self.RANSAC_iterationsCount,
+                    reprojectionError = self.RANSAC_reprojectionError,
+                    confidence = self.RANSAC_confidence)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
 
@@ -192,9 +200,10 @@ class VisualOdometry:
         image,
         keypoints_0.T.astype(np.float32),
         None,
-        winSize=(15, 15),
-        maxLevel=3,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 0.01))
+        winSize=(self.KLT_winSize, self.KLT_winSize),
+        maxLevel=self.KLT_max_level,
+        criteria=self.KLT_criteria
+        )
         
         # Select good points
         st_here = st.reshape(-1)
@@ -418,37 +427,6 @@ class VisualOdometry:
         
         return keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
 
-    def adapt_parameters(self, Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1):
-
-        #Adapt the number of keypoints to detect dynamically based on the number of keypoints in the hidden state
-        
-        #linear function to adapt the number of keypoints to detect with no more at 300 keypoints
-        
-
-        #get the number of keypoints in the hidden state
-        if Hidden_state:
-            sum_hidden_state_landmarks = Hidden_state[0].shape[1]
-        else:
-            sum_hidden_state_landmarks = 0
-
-        if not self.use_sift:
-            self.num_keypoints = max(1,int(-sum_hidden_state_landmarks + min(400,self.current_image_counter*200)))
-        if self.use_sift:
-            self.num_keypoints = 500 #max(10,int(-sum_hidden_state_landmarks + min(500,self.current_image_counter*200)))
-
-
-        #self.num_keypoints = max(1,-landmarks_1.shape[1] + 500)
-
-        
-        #Adapt the threshold angle dynamically based on the number of keypoints being tracked right now
-
-        #this adapts the threshold angle to be higher if more keypoints are tracked (make it harder for new ones to be added)
-        #and lower if less keypoints are tracked (make it easier for new ones to be added)
-        if not self.use_sift:
-            self.threshold_angle = round(max(0.02, landmarks_1.shape[1] / 3000), 2)
-        if self.use_sift:
-            self.threshold_angle = 0.01 #round(max(0.001, landmarks_1.shape[1] / 18000), 2)
-            print(f"-101. self.threshold_angle: {self.threshold_angle}")
 
     def remove_negative_points(self, landmarks, keypoints, descriptors, R_1, t_1):
 
@@ -504,6 +482,64 @@ class VisualOdometry:
 
 
         return landmarks_positive, keypoints_positive, descriptors_positive
+    
+    def filter_keypoints_via_fundamental_ransac(
+        self,
+        keypoints_0, 
+        keypoints_1, 
+        ransacReprojThreshold=1.0, 
+        confidence=0.99, 
+        maxIters=2000
+    ):
+        """
+        Filters matched 2D keypoints using a fundamental-matrix RANSAC step,
+        mimicking estimateFundamentalMatrix in MATLAB.
+
+        Args:
+            keypoints_0 (np.ndarray): Shape (2, N). Keypoints in the first image (row, col) or (x, y).
+            keypoints_1 (np.ndarray): Shape (2, N). Corresponding keypoints in the second image.
+            ransacReprojThreshold (float): RANSAC distance threshold in pixels (or normalized coords).
+            confidence (float): RANSAC confidence.
+            maxIters (int): Maximum RANSAC iterations.
+
+        Returns:
+            inlier_keypoints_0 (np.ndarray): Shape (2, M). Inlier subset of keypoints_0.
+            inlier_keypoints_1 (np.ndarray): Shape (2, M). Inlier subset of keypoints_1.
+            inlier_mask (np.ndarray): Boolean mask of shape (N,) with True for inliers.
+        """
+        num_points = keypoints_0.shape[1]
+        if num_points < 8:
+            # Not enough points to compute fundamental matrix
+            inlier_mask = np.ones(num_points, dtype=bool)  # trivially keep everything
+            return keypoints_0, keypoints_1, inlier_mask
+
+        # Convert from (2, N) to (N, 2) because cv2.findFundamentalMat expects (x, y) per row
+        pts0 = keypoints_0.T  # shape (N, 2)
+        pts1 = keypoints_1.T  # shape (N, 2)
+
+        # Compute fundamental matrix using RANSAC
+        # Note: FM_RANSAC uses pixel coords. If you want more strict filtering, reduce ransacReprojThreshold
+        F, mask = cv2.findFundamentalMat(
+            pts0, 
+            pts1, 
+            method=cv2.FM_RANSAC, 
+            ransacReprojThreshold=ransacReprojThreshold, 
+            confidence=confidence, 
+            maxIters=maxIters
+        )
+        if mask is None:
+            # If F can't be found or something fails, return original
+            inlier_mask = np.ones(num_points, dtype=bool)
+            return keypoints_0, keypoints_1, inlier_mask
+
+        # 'mask' is an N x 1 array of 0/1 indicating outliers/inliers
+        mask = mask.ravel().astype(bool)
+
+        inlier_keypoints_0 = keypoints_0[:, mask]
+        inlier_keypoints_1 = keypoints_1[:, mask]
+
+        return inlier_keypoints_0, inlier_keypoints_1, mask
+
 
     def process_image(self, prev_image, image, keypoints_0, landmarks_0, descriptors_0, R_0, t_0, Hidden_state, history):
 
@@ -520,6 +556,34 @@ class VisualOdometry:
         #remove keypoints that are not tracked
         landmarks_1 = landmarks_0[:, st == 1]
         descriptors_1 = descriptors_0[:, st == 1]
+
+
+
+        tracked_keypoints_0 = keypoints_0[:, st == 1]
+        tracked_keypoints_1 = keypoints_1
+        # print(tracked_keypoints_0.shape)
+
+        # -----------------------------------------------------
+        # 2) Fundamental Matrix RANSAC (2D-2D outlier rejection)
+        # -----------------------------------------------------
+        # Filter out outliers among the newly tracked points
+        filtered_keypoints_0, filtered_keypoints_1, fm_inliers_mask = self.filter_keypoints_via_fundamental_ransac(
+            tracked_keypoints_0, 
+            tracked_keypoints_1, 
+            # ransacReprojThreshold=0.05,
+            ransacReprojThreshold=0.5,
+            confidence=0.99,
+            maxIters=2000
+        )
+        history.texts.append(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        print(f"-401. number of non filtered landmarks : {landmarks_1.shape}")
+        keypoints_1 = keypoints_1[:, fm_inliers_mask] 
+        landmarks_1 = landmarks_1[:, fm_inliers_mask]
+        descriptors_1 = descriptors_1[:, fm_inliers_mask]
+        history.texts.append(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+        print(f"-401. number of filtered landmarks : {landmarks_1.shape}")
+
+
 
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
@@ -562,8 +626,6 @@ class VisualOdometry:
 
         """#####   Triangulate new Landmarks   ######"""
 
-        # Adapt Parameter for Landmark Detection dynamically #
-        self.adapt_parameters(Hidden_state, keypoints_1, landmarks_1, descriptors_1, R_1, t_1)
 
         keypoints_2, landmarks_2, descriptors_2, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors = \
             self.add_new_landmarks(keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history)

@@ -50,7 +50,7 @@ class Plotter:
 
         # Pause loop
         while self.paused[0]:
-            plt.pause(0.1)
+            plt.pause(0.001)
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
         ax_3d = self.fig.add_subplot(231)
@@ -64,7 +64,7 @@ class Plotter:
             gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
             bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
             ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled GT')
-            ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
+            # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Estimated trajectory')
         ax_3d.axis('equal')
