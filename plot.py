@@ -11,7 +11,7 @@ import textwrap
 
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
-        self.fig = plt.figure(figsize=(11, 15))
+        self.fig = plt.figure(figsize=(18, 5))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -29,18 +29,18 @@ class Plotter:
         self.i = current_iteration
 
         # Plot Dashboard
-        self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
+        # self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
         # self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         # self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
-        self.plot_text(img, history, current_iteration)
+        # self.plot_text(img, history, current_iteration)
         # self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
-        # Add text on a free space between subplots for tracking parameters
-        self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
-        self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
-        color = 'green' if is_benchmark else 'black'
-        self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
+        # # Add text on a free space between subplots for tracking parameters
+        # self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
+        # self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
+        # color = 'green' if is_benchmark else 'black'
+        # self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
         
         # Draw the pause button
         # pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
@@ -57,7 +57,7 @@ class Plotter:
         #     plt.pause(0.1)
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
-        ax_3d = self.fig.add_subplot(311)
+        ax_3d = self.fig.add_subplot(312)
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
@@ -124,7 +124,7 @@ class Plotter:
        
     def plot_top_view(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
         #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
-        ax_3d_1 = ax.add_subplot(232)
+        ax_3d_1 = ax.add_subplot()
         ax_3d_1.set_xlabel('X')
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
@@ -194,7 +194,7 @@ class Plotter:
             difference = keypoints_history[-1]
 
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(312)
+        ax_2d = self.fig.add_subplot()
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -209,17 +209,17 @@ class Plotter:
         if len(history.outliers) != 0:
             for kp in history.outliers[-1].T:
                 center = tuple(kp.astype(int))
-                cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
+                cv2.circle(image_plotting, center, 3, (0, 255, 0), -1)
      
         #plot current keypoints blue
         for keypoints_from_history in difference.T:
             center = tuple(keypoints_from_history.astype(int))
-            cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
+            cv2.circle(image_plotting, center, 4, (255, 0, 0), -1)
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
             center = tuple(kp.astype(int))
-            cv2.circle(image_plotting, center, 3, (0, 0, 255), -1)
+            cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
 
 
         image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)

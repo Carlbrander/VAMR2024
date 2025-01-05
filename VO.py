@@ -722,6 +722,8 @@ class VisualOdometry:
         history.texts.append(f"-3.0 landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
         history.camera_position.append(-R_1.T @ t_1)
 
+        history.keypoints.append(keypoints_1)
+
         ###Triangulate new Landmarks###
 
 
@@ -734,7 +736,7 @@ class VisualOdometry:
 
 
         ###Update History###
-        history.keypoints.append(keypoints_2)
+        # history.keypoints.append(keypoints_2)
         history.landmarks.append(landmarks_2)
         history.R.append(R_1)
         history.t.append(t_1)
