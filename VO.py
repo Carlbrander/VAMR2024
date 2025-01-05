@@ -445,7 +445,7 @@ class VisualOdometry:
 
                 # If angle > threshold, add to lists
                 for idx, angle in enumerate(angles):
-                    if angle >= self.threshold_angle:
+                    if angle >= self.threshold_angle and len(new_keypoints) < self.landmarks_allowed:
                         new_keypoints.append(candidate[3][:, idx])
                         new_descriptors.append(candidate[6][:, idx])
                         new_landmarks.append(landmarks[:, idx])
@@ -453,10 +453,10 @@ class VisualOdometry:
                         #remove the keypoints in their hidden state if the are triangulated with large enough angle
                         to_delete_index.append(idx)
                         
-                # # Remove keypoints that were triangulated with large enough angle
-                # candidate[0] = np.delete(candidate[0], to_delete_index, axis=1)
-                # candidate[3] = np.delete(candidate[3], to_delete_index, axis=1)
-                # candidate[6] = np.delete(candidate[6], to_delete_index, axis=1)
+                # Remove keypoints that were triangulated with large enough angle
+                candidate[0] = np.delete(candidate[0], to_delete_index, axis=1)
+                candidate[3] = np.delete(candidate[3], to_delete_index, axis=1)
+                candidate[6] = np.delete(candidate[6], to_delete_index, axis=1)
 
 
                 history.texts.append(f"Candidate Nr. {candidate[7]}: mean angle: {round(np.mean(angles),4)} std:  {round(np.std(angles),4)}, max: {round(np.max(angles),4)}, added: {len(to_delete_index)}, Nr. of elements after: {len(angles)}, baseline: {baseline}")
