@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 import cv2
@@ -5,9 +8,10 @@ import numpy as np
 import platform
 import textwrap
 
+
 class Plotter:
-    def __init__(self, camera_positions, camera_position_bm, bootstrap_frames,args):
-        self.fig = plt.figure(figsize=(18, 10))
+    def __init__(self, camera_positions, camera_position_bm, bootstrap_frames):
+        self.fig = plt.figure(figsize=(11, 15))
         self.mng = plt.get_current_fig_manager()
         if platform.system() != 'Linux':
             self.mng.window.state('normal')
@@ -15,25 +19,22 @@ class Plotter:
         self.camera_position_bm = camera_position_bm
         self.bootstrap_frames = bootstrap_frames
         self.i = 0
-        self.visualize_dashboard_1 = args.visualize_dashboard
-        self.visualize_every_nth_frame = args.visualize_every_nth_frame
 
         # Pause logic
         self.paused = [False]
 
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
-        
         # Clear the figure to update it
         self.fig.clf()
         self.i = current_iteration
 
         # Plot Dashboard
         self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
-        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        # self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
-        self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
+        # self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
         self.plot_text(img, history, current_iteration)
-        #self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        # self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -42,25 +43,21 @@ class Plotter:
         self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
         
         # Draw the pause button
-        pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
-        self.pause_button = Button(pause_button_ax, 'Pause/Resume')
-        self.pause_button.on_clicked(self.toggle_pause)
+        # pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
+        # self.pause_button = Button(pause_button_ax, 'Pause/Resume')
+        # self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        if self.visualize_dashboard_1:
-            plt.show(block=False)
-            plt.pause(0.00000000001)
-            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
-        else:
-            
-            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        # plt.show(block=False)
+        # plt.pause(0.00000000001)
+        plt.savefig("output/output_{0:06}.tiff".format(len(history.camera_position)), compress='none')
 
-        # Pause loop
-        while self.paused[0]:
-            plt.pause(0.1)
+        # # Pause loop
+        # while self.paused[0]:
+        #     plt.pause(0.1)
 
     def plot_3d(self, history_landmarks, history, triangulated_landmarks):
-        ax_3d = self.fig.add_subplot(231)
+        ax_3d = self.fig.add_subplot(311)
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
@@ -71,7 +68,7 @@ class Plotter:
             gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
             bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
             ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled GT')
-            ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
+            # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Estimated trajectory')
         ax_3d.axis('equal')
@@ -140,7 +137,7 @@ class Plotter:
         ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
 
         #plot triangulated landmarks in red
-        if isinstance(triangulated_landmarks, np.ndarray) and triangulated_landmarks.size != 0:
+        if triangulated_landmarks.size != 0:
             ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
 
 
@@ -191,8 +188,13 @@ class Plotter:
         triangulated_keypoints = history.triangulated_keypoints[-1]
         keypoints_history = history.keypoints
 
+        if triangulated_keypoints.shape != (0,):
+            difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
+        else:
+            difference = keypoints_history[-1]
+
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(234)
+        ax_2d = self.fig.add_subplot(312)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -202,9 +204,14 @@ class Plotter:
         #     for kp in keypoints_from_history.T:
         #         center = tuple(kp.astype(int))
         #         cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
+
+        # #plot outliers in green
+        # for kp in history.outliers[-1].T:
+        #     center = tuple(kp.astype(int))
+        #     cv2.circle(image_plotting, center, 5, (0, 255, 0), -1)
      
         #plot current keypoints blue
-        for keypoints_from_history in keypoints_history[-1].T:
+        for keypoints_from_history in difference.T:
             center = tuple(keypoints_from_history.astype(int))
             cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
 
@@ -212,6 +219,7 @@ class Plotter:
         for kp in triangulated_keypoints.T:
             center = tuple(kp.astype(int))
             cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
+
 
         image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
 
@@ -267,7 +275,7 @@ class Plotter:
 
 
     def plot_text(self, img, history, current_iteration):
-        ax = self.fig.add_subplot(233)
+        ax = self.fig.add_subplot(313)
         # ax = self.fig.add_subplot(236)
 
         # Adding multi-line text at a specified location
@@ -360,3 +368,11 @@ def wrap_text(text, width, subsequent_indent='    '):
     """Wrap text to fit within a specified width with indentation for subsequent lines."""
     wrapper = textwrap.TextWrapper(width=width, subsequent_indent=subsequent_indent)
     return '\n'.join(wrapper.wrap(text))
+
+
+def custom_set_diff(arr1, arr2):
+    # This function assumes that arr1 and arr2 are 2D and that you want to find rows in arr1 not in arr2
+    a1_rows = set(map(tuple, arr1))
+    a2_rows = set(map(tuple, arr2))
+    unique_rows = np.array(list(a1_rows.difference(a2_rows)))
+    return unique_rows
