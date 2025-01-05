@@ -178,38 +178,17 @@ class VisualOdometry:
         Returns:
 
         """
-        # Estimate motion using PnP
-        if self.ds == 2:
-            retval, rotation_vector, translation_vector, inliers = \
-                cv2.solvePnPRansac(
-                        landmarks_1.astype(np.float32).T, 
-                        keypoints_1.astype(np.float32).T, 
-                        self.K, 
-                        distCoeffs=None,
-                        iterationsCount=2000,
-                        reprojectionError=1.0,
-                        confidence=0.999)
-            
-        elif self.ds == 0:
-            retval, rotation_vector, translation_vector, inliers = \
-                cv2.solvePnPRansac(
-                        landmarks_1.astype(np.float32).T, 
-                        keypoints_1.astype(np.float32).T, 
-                        self.K, 
-                        distCoeffs=None,
-                        iterationsCount=2000,
-                        reprojectionError=8.0,
-                        confidence=0.999)
-        elif self.ds == 1:
-            retval, rotation_vector, translation_vector, inliers = \
-                cv2.solvePnPRansac(
-                        landmarks_1.astype(np.float32).T, 
-                        keypoints_1.astype(np.float32).T, 
-                        self.K, 
-                        distCoeffs=None,
-                        iterationsCount=2000,
-                        reprojectionError=3.0,
-                        confidence=0.999)
+    
+          
+        retval, rotation_vector, translation_vector, inliers = \
+            cv2.solvePnPRansac(
+                    landmarks_1.astype(np.float32).T, 
+                    keypoints_1.astype(np.float32).T, 
+                    self.K, 
+                    distCoeffs=None,
+                    iterationsCount=200000,
+                    reprojectionError=3.0,
+                    confidence=0.9999)
         
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
 
@@ -286,36 +265,15 @@ class VisualOdometry:
         if len(image.shape) > 2:    
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        #use KLT to track existing keypoint in this new image
-        if self.ds == 0:
-            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
-            prev_image,
-            image,
-            keypoints_0.T.astype(np.float32),
-            None,
-            winSize=(18, 18),
-            maxLevel=8,
-            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.5))
-
-        if self.ds == 1:
-            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
-            prev_image,
-            image,
-            keypoints_0.T.astype(np.float32),
-            None,
-            winSize=(18, 18),
-            maxLevel=8,
-            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.001))
-
-        elif self.ds == 2:
-            keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
-            prev_image,
-            image,
-            keypoints_0.T.astype(np.float32),
-            None,
-            winSize=(9, 9),
-            maxLevel=8,
-            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.5))
+      
+        keypoints_1, st, err = cv2.calcOpticalFlowPyrLK(
+        prev_image,
+        image,
+        keypoints_0.T.astype(np.float32),
+        None,
+        winSize=(18, 18),
+        maxLevel=4,
+        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.0001))
 
 
 
@@ -421,6 +379,7 @@ class VisualOdometry:
         all_angles_after = []
 
         angles_and_keypoints = []
+        angles_and_landmarks_r_t = []
 
        
         if Hidden_state:
@@ -444,11 +403,12 @@ class VisualOdometry:
 
                 for i,landmark in enumerate(landmarks.T):
                     # Calculate bearing angle between the landmark and both camera views
-                    angle = self.calculate_angle(landmark, candidate[2], candidate[5])
+                    angle = self.calculate_angle(landmark,candidate[1],candidate[4], candidate[2], candidate[5])
                     angles.append(angle)   
                     all_angles.append(angle)
                     all_angles_after.append(angle)
                     angles_and_keypoints.append([angle, candidate[3][:, i]])
+                    angles_and_landmarks_r_t.append([angle, landmark, candidate[1], candidate[2], candidate[4], candidate[5]])
                     #sort by biggest angle first
                 angles = np.array(angles)
                 angles = np.sort(angles)[::-1]
@@ -482,15 +442,21 @@ class VisualOdometry:
         history.angles_before.append(all_angles)
         history.angles_after.append(all_angles_after)
         history.angles_and_keypoints.append(angles_and_keypoints)
+        history.angles_and_landmarks_r_t.append(angles_and_landmarks_r_t)
 
 
         return new_keypoints, new_landmarks, new_descriptors, history
 
-    def calculate_angle(self, landmark, t_1, t_2):
+    def calculate_angle(self, landmark, R_1, R_2,t_1, t_2):
         #get the direction vector from the first observation camera pose to the landmark
-        direction_1 = landmark - t_1.flatten()
+        #direction_1 = landmark - t_1.flatten()
         #get the direction vector from the current camera pose to the landmark
-        direction_2 = landmark - t_2.flatten()
+        #direction_2 = landmark - t_2.flatten()
+
+        #get the direction vector from the first observation camera pose to the landmark
+        direction_1 = landmark + (R_1.T @ t_1).flatten()
+        #get the direction vector from the current camera pose to the landmark
+        direction_2 = landmark + (R_2.T @ t_2).flatten()
 
         #normalize the vectors
         direction_1 = direction_1 / np.linalg.norm(direction_1)
@@ -500,6 +466,7 @@ class VisualOdometry:
         angle = np.arccos(np.clip(np.dot(direction_1, direction_2), -1.0, 1.0))
 
         return angle
+
 
     def add_new_landmarks(self, keypoints_1, landmarks_1, descriptors_1, R_1, t_1, Hidden_state, history):
         
@@ -586,7 +553,7 @@ class VisualOdometry:
         #    return keypoints_1, landmarks_1, descriptors_1, Hidden_state, np.array([]), np.array([]), np.array([])
         
         #elif landmarks_1.shape[1] <= 500:
-        self.landmarks_allowed = 3000#500 - landmarks_1.shape[1]
+        self.landmarks_allowed = 10000#500 - landmarks_1.shape[1]
 
 
 
@@ -722,6 +689,11 @@ class VisualOdometry:
         ###estimate motion using PnP###
         R_1,t_1, inliers = self.estimate_motion(keypoints_1, landmarks_1)
         # Use inliers to filter out outliers from keypoints and landmarks
+
+        if inliers is None:
+            print("No inliers found for motion estimation, pipeline failed")
+            exit()
+
         inliers = inliers.flatten()
         keypoints_1 = keypoints_1[:, inliers]
         landmarks_1 = landmarks_1[:, inliers]

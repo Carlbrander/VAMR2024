@@ -17,6 +17,7 @@ class Plotter:
         self.i = 0
         self.visualize_dashboard_1 = args.visualize_dashboard
         self.visualize_every_nth_frame = args.visualize_every_nth_frame
+        self.threshold_angle = args.threshold_angle
 
         # Pause logic
         self.paused = [False]
@@ -31,14 +32,14 @@ class Plotter:
 
         # Plot Dashboard
         self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
-        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        #self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
         #self.plot_text(img, history, current_iteration)
         #self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
 
 
-        bins = np.linspace(0, 0.2, 51)  # 50 bins between 0 and 20 degrees
+        bins = np.linspace(0, 2*self.threshold_angle, 51)  # 50 bins between 0 and 20 degrees
         #remove all angles under the threshold from angles_before
         history.angles_before[-1] = [angle for angle in history.angles_before[-1] if angle > history.threshold_angles[-1]]
 
@@ -49,9 +50,8 @@ class Plotter:
         ax_3d_2.set_title('Histogram of Angles In all Current Hidden States summed up')
         ax_3d_2.set_xlabel('Angle in radian')
         ax_3d_2.set_ylabel('Frequency')
-        ax_3d_2.set_xlim(0, 0.2)
-        ax_3d_2.set_xticks(np.arange(0, 0.2, 0.01))
-        ax_3d_2.legend(['Points with too small angle', '>0.03 Angle points that get added'])
+        ax_3d_2.set_xlim(0, 2*self.threshold_angle)
+        ax_3d_2.set_xticks(np.arange(0, 2*self.threshold_angle, 2*self.threshold_angle/10))
      
         #make x text tick vertical
         plt.xticks(rotation=90)
@@ -101,22 +101,110 @@ class Plotter:
 
        
         #colors red to green
-        #angle of 0.03 = 255 (red)
+        #angle of threshold angle = 255 (red)
         #angle of 0 = 0 (green)
         
         for angle, keypoint in angles_and_keypoints:
-            print("Angle: ", angle)
-            print("Keypoint: ", keypoint)
+            
             center = tuple(keypoint.astype(int))
-            green_color = 255-int(angle*255/0.03)
-            red_color = int(angle*255/0.03)
-            print("Color: ", red_color, green_color)
+            green_color = 255-int(angle*255/self.threshold_angle)
+            red_color = int(angle*255/self.threshold_angle)
             cv2.circle(image_plotting, center, 3, (red_color, green_color, 0), -1)
         ax_2d.imshow(image_plotting)
-        ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Angle 0.1, Green = Angle 0)')
+        ax_2d.set_title(f'2D Plot All Hidden states (Red = Angle {self.threshold_angle}, Green = Angle 0)')
 
 
 
+
+        ###COLOR = ANGLE OF POINTS BUT FROM TOP VIEW ###
+
+        ax_2d_2 = self.fig.add_subplot(232)
+
+
+        ax_2d_2.set_xlabel('X')
+        ax_2d_2.set_ylabel('Z')
+        ax_2d_2.set_aspect('equal', adjustable='datalim')
+
+        #angles_and_landmarks_r_t.append([angle, landmark, candidate[1], candidate[2], candidate[4], candidate[5]])
+
+        landmarks_plot = np.array([landmark for angle, landmark, r_0, t_0, r_1, t_1 in history.angles_and_landmarks_r_t[-1]]).T
+        #plot landmarks from current frame in blue which have not been plotted before
+        
+        for angle, landmark, r_0, t_0, r_1, t_1 in history.angles_and_landmarks_r_t[-1]:
+            
+            center = tuple(landmark.astype(int))
+            green_color = np.clip(255-int(angle*255/self.threshold_angle), 0, 255)
+            red_color = np.clip(int(angle*255/self.threshold_angle), 0, 255)
+
+            ax_2d_2.scatter(landmark[0], landmark[2], c=[(red_color/255, green_color/255, 0)], marker='o', s = 2)
+
+        camera_x = [point[0] for point in history.camera_position]
+        camera_z = [point[2] for point in history.camera_position]
+        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
+        camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
+        ax_2d_2.scatter(camera_x, camera_z, c='g', marker='x')
+        ax_2d_2.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
+        ax_2d_2.legend()
+
+
+        # Plot the latest pose in red
+        ax_2d_2.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x')
+
+
+
+      
+        #set the limits of the plot to 2* the standard deviation of the landmarks in x and z direction
+
+        if len(landmarks_plot) == 0:
+            ax_2d_2.set_xlim(-1, 1)
+            ax_2d_2.set_ylim(-1, 1)
+        else:
+
+            #remove any landmarks that are too far away from the mean
+            landmarks_plot = landmarks_plot[:, np.all(np.abs(landmarks_plot - np.mean(landmarks_plot, axis=1)[:, None]) < 2 * np.std(landmarks_plot, axis=1)[:, None], axis=0)]
+
+            x_std = np.std(np.abs(landmarks_plot[0, :]))
+            z_std = np.std(np.abs(landmarks_plot[2, :]))
+
+            x_mean = np.mean(landmarks_plot[0, :])
+            z_mean = np.mean(landmarks_plot[2, :])
+
+            ax_2d_2.set_xlim((-2 * x_std )+ x_mean, (2 * x_std) + x_mean)
+            ax_2d_2.set_ylim((-2 * z_std) + z_mean, (2 * z_std) + z_mean)
+
+        # Compute the camera's forward direction in world coordinates
+        forward_vector = history.R[-1].T @ np.array([0, 0, 1])
+        
+        dx = forward_vector[0]
+        dz = forward_vector[2]
+
+        # Normalize the direction vector
+        norm = np.sqrt(dx**2 + dz**2)
+        dx /= norm
+        dz /= norm
+
+        #add arrow in the direction the camera is looking:
+        ax_2d_2.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
+        ax_2d_2.set_title(f'Top View of HIDDEN STATES colored by angle (red={self.threshold_angle}, green=0)')  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
 
         
 

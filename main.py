@@ -39,15 +39,13 @@ def parse_arguments():
     args.use_BA = False
     args.use_pose_refinement = False
 
-    if args.ds == 0:
-        args.threshold_angle = 0.03
-    elif args.ds == 1:
-        args.threshold_angle = 0.01
-    elif args.ds == 2:
-        args.threshold_angle = 0.001
+    
+    args.threshold_angle = 0.3
+    
 
-    args.min_baseline = 0.4
-    args.num_keypoints = 800
+
+    args.min_baseline = 0.0000001
+    args.num_keypoints = 1000
 
     return args
 
@@ -206,6 +204,7 @@ class History:
         self.angles_after = []
         self.current_Hidden_state = []
         self.angles_and_keypoints = []
+        self.angles_and_landmarks_r_t = []
 
         self.texts = []
 
