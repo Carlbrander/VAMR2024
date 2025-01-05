@@ -227,7 +227,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
     vo = VisualOdometry(args)
     
     benchmarker = Benchmarker(args.gt_camera_position, args.ds)
-    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames, args)
+    plotter = Plotter(args.gt_camera_position, benchmarker.camera_position_bm, args.bootstrap_frames)
 
     Hidden_state = []
   
@@ -245,8 +245,8 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         # RMS, is_benchmark = benchmarker.process(history.camera_position, i)
         RMS = 0
         is_benchmark = True
-        if args.visualize_every_nth_frame > 0 and i % args.visualize_every_nth_frame == 0:
-            plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
+        # if args.visualize_every_nth_frame > 0 and i % args.visualize_every_nth_frame == 0:
+        plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
         
         #update previous image
         prev_img = image

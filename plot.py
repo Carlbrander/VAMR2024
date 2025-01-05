@@ -188,10 +188,10 @@ class Plotter:
         triangulated_keypoints = history.triangulated_keypoints[-1]
         keypoints_history = history.keypoints
 
-        if triangulated_keypoints.shape != (0,):
-            difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
-        else:
-            difference = keypoints_history[-1]
+        # if triangulated_keypoints.shape != (0,):
+            # difference = custom_set_diff(keypoints_history[-1].T, triangulated_keypoints.T).T
+        # else:
+        difference = keypoints_history[-1]
 
         #add image to bottom subplot
         ax_2d = self.fig.add_subplot(312)
@@ -282,7 +282,7 @@ class Plotter:
         wrapped_texts = [wrap_text(text, width=90) for text in history.texts]
         text_str = '\n'.join(wrapped_texts)
 
-        ax.text(-2, 9.5, text_str, fontsize=10, color='black', ha='left', va='top')
+        ax.text(-2, 20, text_str, fontsize=10, color='black', ha='left', va='top')
         # ax.text(0.2, -9.5, text_str, fontsize=12, color='black', ha='left', va='top')
 
         # Optional: Add labels and title
