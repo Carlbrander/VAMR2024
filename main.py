@@ -103,9 +103,9 @@ def dataset_setup(args):
         args.nonmaximum_supression_radius = 4
         args.max_num_new_keypoints = 3000
         
-        args.RANSAC_iterationsCount = 5000
-        args.RANSAC_reprojectionError= 5
-        args.RANSAC_confidence = 0.999
+        args.RANSAC_iterationsCount = 200000
+        args.RANSAC_reprojectionError= 2.0
+        args.RANSAC_confidence = 0.9999
         args.KLT_window_size = 15
         args.KLT_max_level = 4
         args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 500, 0.001)
