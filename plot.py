@@ -50,9 +50,13 @@ class Plotter:
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        plt.show(block=False)
-        plt.pause(0.00000000001)
-        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        if self.visualize_dashboard_1:
+            plt.show(block=False)
+            plt.pause(0.00000000001)
+            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        else:
+            
+            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop
         while self.paused[0]:
