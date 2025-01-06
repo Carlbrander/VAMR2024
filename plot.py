@@ -269,13 +269,7 @@ class Plotter:
                 
                 landmarks_count.append(candidate[0].shape[1])  
 
-        #create a list with the sum of all values left of the current one for each element
-        # landmarks_sums = []
-        # for i in range(len(landmarks_count)):
-        #     landmarks_sums.append(np.sum(landmarks_count[:i+1]))
-        # landmarks_sums = [0] + [0] + landmarks_sums
-        # ax_4.plot(landmarks_sums, label='Sum of Landmarks in Hidden State', color='g')
-
+        ax_4.set_xticks(range(20))  # Positionen der x-Achsen-Ticks von 0 bis 19
 
 
         ax_4.set_title('Line Graph')
