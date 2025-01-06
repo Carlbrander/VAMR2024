@@ -76,11 +76,6 @@ def compute_camera_positions(poses):
 
 def plot_camera_trajectory(camera_positions, title="Camera Trajectory"):
     fig, ax = plt.subplots()
-    num_positions = len(camera_positions)
-    colors = plt.cm.viridis(np.linspace(0, 1, num_positions))
-    
-    # for i in range(num_positions - 1):
-    #     ax.plot(camera_positions[i:i+2][0], camera_positions[i:i+2][1], color=colors[i])
     
     camera_x_gt = [point[0] for point in camera_positions]
     camera_z_gt = [point[2] for point in camera_positions]
