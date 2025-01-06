@@ -5,6 +5,16 @@ __pycache__/
 
 kitti_harris/
 kitti_harris.mp4
+malaga_harris/
+malaga_harris.mp4
+parking_harris/
+parking_harris.mp4
+parking_SIFT/
+parking_SIFT.mp4
+malaga_SIFT/
+malaga_SIFT.mp4
+kitti_SIFT/
+kitti_SIFT.mp4
 
 # C extensions
 *.so
