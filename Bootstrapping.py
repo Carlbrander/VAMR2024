@@ -74,7 +74,7 @@ def bootstrapping(args):
     img0                = args.img0
     img1                = args.img1
     K                   = args.K
-
+    args.use_sift       = True
 
     if not args.use_sift:
         #get keypoints of both images using 
@@ -130,18 +130,22 @@ def bootstrapping(args):
     # Set the random seed for reproducibility
     np.random.seed(42)
     
-    E, _ = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.9999, 0.5)
+    E, inliers = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.999, 1)
+    inliers = inliers.flatten()
+    keypoints_0_inliers = matched_keypoints_0_xy[inliers==1]
+    keypoints_1_inliers = matched_keypoints_1_xy[inliers==1]
+    descriptors_1_inliers = matched_descriptors_1[:, inliers == 1]
 
     # Recover the pose of the second camera
-    _, R, t, mask_pose = cv2.recoverPose(E, matched_keypoints_0_xy, matched_keypoints_1_xy, K)
+    _, R, t, mask_pose = cv2.recoverPose(E, keypoints_0_inliers, keypoints_1_inliers, K)
 
     # Select inlier points
     inliers = mask_pose.ravel().astype(bool)
-    keypoints_0_inliers = matched_keypoints_0_xy[inliers]
-    keypoints_1_inliers = matched_keypoints_1_xy[inliers]
+    keypoints_0_inliers = keypoints_0_inliers[inliers]
+    keypoints_1_inliers = keypoints_1_inliers[inliers]
 
     # Select desctiptors of inlier points
-    descriptors_1_inliers = matched_descriptors_1[:, inliers]
+    descriptors_1_inliers = descriptors_1_inliers[:, inliers]
 
     # Projection matrices for the two cameras
     P0 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
@@ -151,11 +155,62 @@ def bootstrapping(args):
     points_4d_hom = cv2.triangulatePoints(P0, P1, keypoints_0_inliers.T, keypoints_1_inliers.T)
     points_3d = (points_4d_hom[:3] / points_4d_hom[3]).T
 
+        # Filter points with small triangulation angles:
+    # Compute the normalized vectors from the camera centers to the 3D points
+    cam0_center = np.zeros(3)
+    cam1_center = -R.T @ t.ravel()
+    cam0_to_points = points_3d - cam0_center
+    cam1_to_points = points_3d - cam1_center
+    cam0_to_points /= np.linalg.norm(cam0_to_points, axis=1)[:, np.newaxis]
+    cam1_to_points /= np.linalg.norm(cam1_to_points, axis=1)[:, np.newaxis]
+    # Compute the triangulation angles
+    triangulation_angles = np.arccos(np.sum(cam0_to_points * cam1_to_points, axis=1))
+    # Filter points with small triangulation angles
+    filtered_indices = triangulation_angles > np.radians(3)
+    points_3d = points_3d[filtered_indices]
+    keypoints_0_inliers = keypoints_0_inliers[filtered_indices]
+    keypoints_1_inliers = keypoints_1_inliers[filtered_indices]
+    descriptors_1_inliers = descriptors_1_inliers[:,filtered_indices]
+
+   
+   
+
+   ########## Triangulate points again#################
+    #Estimate the essential matrix E using the 8-point algorithm with strict threshold of 1 pixel and 99.9% confidence
+    # Set the random seed for reproducibility
+    np.random.seed(42)
+    
+    E, inliers = cv2.findEssentialMat(keypoints_0_inliers, keypoints_1_inliers, K, cv2.RANSAC, 0.999, 1)
+    inliers = inliers.flatten()
+    keypoints_0_inliers = keypoints_0_inliers[inliers==1]
+    keypoints_1_inliers = keypoints_1_inliers[inliers==1]
+    descriptors_1_inliers = descriptors_1_inliers[:, inliers == 1]
+
+    # Recover the pose of the second camera
+    _, R, t, mask_pose = cv2.recoverPose(E, keypoints_0_inliers, keypoints_1_inliers, K)
+
+    # Select inlier points
+    inliers = mask_pose.ravel().astype(bool)
+    keypoints_0_inliers = keypoints_0_inliers[inliers]
+    keypoints_1_inliers = keypoints_1_inliers[inliers]
+
+    # Select desctiptors of inlier points
+    descriptors_1_inliers = descriptors_1_inliers[:, inliers]
+
+    # Projection matrices for the two cameras
+    P0 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
+    P1 = K @ np.hstack((R, t))
+
+    # Triangulate points
+    points_4d_hom = cv2.triangulatePoints(P0, P1, keypoints_0_inliers.T, keypoints_1_inliers.T)
+    points_3d = (points_4d_hom[:3] / points_4d_hom[3]).T
+
+
   
-    # Visualize 3D points
-    #plot_3d_bootstrapping(points_3d, R, t)
-    ## Visualize inlier keypoints
-    #plot_2d_bootstrapping(img0, img1, keypoints_0_inliers, keypoints_1_inliers, "Inlier Keypoints")
+    # # Visualize 3D points
+    # plot_3d_bootstrapping(points_3d, R, t)
+    # Visualize inlier keypoints
+    plot_2d_bootstrapping(img0, img1, keypoints_0_inliers, keypoints_1_inliers, "Inlier Keypoints")
 
     
     #transpose keypoints_1_inliers to match the format of the keypoints expected in continuous operation

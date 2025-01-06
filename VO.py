@@ -212,6 +212,20 @@ class VisualOdometry:
         keypoints_1 = keypoints_1.T[:,st_here == 1]
         
         return keypoints_1, st
+    
+    def feature_matching(self, descriptors_0, descriptors_1):
+
+        # Match descriptors
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(descriptors_0, descriptors_1, k=2)
+
+        # Apply ratio test
+        good = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good.append(m)
+
+        return good
 
     def track_and_update_hidden_state(self, Hidden_state):
 
@@ -241,6 +255,7 @@ class VisualOdometry:
 
             # # Update the Hidden state with the filtered keypoints
             # new_Hidden_state = [new_Hidden_state[0][:, mask], new_Hidden_state[1][:,:, mask], new_Hidden_state[2][:, :, mask], new_Hidden_state[3][:, mask], new_Hidden_state[4][:, mask]]
+            
         
 
         return new_Hidden_state
@@ -411,17 +426,17 @@ class VisualOdometry:
             return keypoints_1, landmarks_1, descriptors_1, Hidden_state, triangulated_keypoints, triangulated_landmarks, triangulated_descriptors
         
 
-        # Reduce the number of new landmarks to 3 times the number of current landmarks
-        if triangulated_landmarks.shape[1] > 2 * landmarks_1.shape[1]:
-            history.texts.append(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
-            print(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
-            # select 2*landmarks_1.shape[1] random indices
-            random_indices = np.random.choice(triangulated_landmarks.shape[1], int(2 * landmarks_1.shape[1]), replace=False)
-            triangulated_landmarks = triangulated_landmarks[:, random_indices]
-            triangulated_keypoints = triangulated_keypoints[:, random_indices]
-            triangulated_descriptors = triangulated_descriptors[:, random_indices]
-            history.texts.append(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
-            print(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
+        # # Reduce the number of new landmarks to 3 times the number of current landmarks
+        # if triangulated_landmarks.shape[1] > 4 * landmarks_1.shape[1]:
+        #     history.texts.append(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
+        #     print(f"Number of new Landmarks before reducing: {triangulated_landmarks.shape[1]}")
+        #     # select 2*landmarks_1.shape[1] random indices
+        #     random_indices = np.random.choice(triangulated_landmarks.shape[1], int(4 * landmarks_1.shape[1]), replace=False)
+        #     triangulated_landmarks = triangulated_landmarks[:, random_indices]
+        #     triangulated_keypoints = triangulated_keypoints[:, random_indices]
+        #     triangulated_descriptors = triangulated_descriptors[:, random_indices]
+        #     history.texts.append(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
+        #     print(f"Number of new Landmarks after reducing: {triangulated_landmarks.shape[1]}")
             
 
         landmarks_2 = np.hstack((landmarks_1, triangulated_landmarks))
@@ -614,8 +629,8 @@ class VisualOdometry:
         history.texts.append(f"Number of Keypoints in Hidden State before Tracking: {sum_hidden_state_landmarks}")
         print("Number of Keypoints in Hidden State before Tracking:", sum_hidden_state_landmarks)
 
-        # Track and Update all Hidden States
-        Hidden_state = self.track_and_update_hidden_state(Hidden_state)
+        # # Track and Update all Hidden States
+        # Hidden_state = self.track_and_update_hidden_state(Hidden_state)
 
         #print cummulative number of keypoints in hidden state after tracking
         sum_hidden_state_landmarks = 0
