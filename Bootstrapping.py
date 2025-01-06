@@ -130,7 +130,7 @@ def bootstrapping(args):
     # Set the random seed for reproducibility
     np.random.seed(42)
     
-    E, _ = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.999, 1.0)
+    E, _ = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.9999, 0.5)
 
     # Recover the pose of the second camera
     _, R, t, mask_pose = cv2.recoverPose(E, matched_keypoints_0_xy, matched_keypoints_1_xy, K)

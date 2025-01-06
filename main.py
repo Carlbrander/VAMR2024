@@ -16,7 +16,7 @@ def parse_arguments():
     # Parse arguments
     parser = ArgumentParser()
     parser.add_argument("--ds", type=int, default=0, help="Dataset to use. Options: 0: KITTI, 1: Malaga, 2: parking")
-    parser.add_argument("--use_sift", type=bool, default=True, help="Use SIFT instead of Harris")
+    parser.add_argument("--use_sift", type=bool, default=False, help="Use SIFT instead of Harris")
     args = parser.parse_args()
 
 
@@ -104,11 +104,11 @@ def dataset_setup(args):
         args.max_num_new_keypoints = 3000
         
         args.RANSAC_iterationsCount = 200000
-        args.RANSAC_reprojectionError= 2.0
+        args.RANSAC_reprojectionError= 2
         args.RANSAC_confidence = 0.9999
         args.KLT_window_size = 15
         args.KLT_max_level = 4
-        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 500, 0.001)
+        args.KLT_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 500, 0.0001)
     
     # Malaga:
     elif ds == 1:
@@ -176,7 +176,7 @@ def dataset_setup(args):
     # need to set bootstrap_frames
     if ds == 0:
         start = 0
-        bootstrap_frames = [start, start + 7] # having more than 2 frames in between brakes ground thruth calculation
+        bootstrap_frames = [start, start + 6] # having more than 2 frames in between brakes ground thruth calculation
         img0 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[0]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         img1 = cv2.imread(os.path.join(kitti_path, '05', 'image_0', f'{bootstrap_frames[1]:06d}.png'), cv2.IMREAD_GRAYSCALE)
         args.kitti_path = kitti_path
