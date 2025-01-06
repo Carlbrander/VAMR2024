@@ -22,7 +22,6 @@ dependencies:
   - dbus=1.13.6=h5008d03_3
   - double-conversion=3.3.0=h59595ed_0
   - expat=2.6.4=h5888daf_0
-  - ffmpeg=7.1.0=gpl_heed6883_705
   - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
   - font-ttf-inconsolata=3.000=h77eed37_0
   - font-ttf-source-code-pro=2.038=h77eed37_0
