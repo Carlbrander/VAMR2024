@@ -160,13 +160,6 @@ class VisualOdometry:
             matched_keypoints_0 = np.array([keypoints_0[match.queryIdx] for match in good])
             matched_keypoints_1 = np.array([keypoints_1[match.trainIdx] for match in good])
 
-           
-
-
-
-
-        
-
         return matched_keypoints_1.T, matched_keypoints_0.T, matches
             
     def estimate_motion(self, keypoints_1, landmarks_1):
@@ -451,11 +444,6 @@ class VisualOdometry:
 
     def calculate_angle(self, landmark, R_1, R_2,t_1, t_2):
         #get the direction vector from the first observation camera pose to the landmark
-        #direction_1 = landmark - t_1.flatten()
-        #get the direction vector from the current camera pose to the landmark
-        #direction_2 = landmark - t_2.flatten()
-
-        #get the direction vector from the first observation camera pose to the landmark
         direction_1 = landmark + (R_1.T @ t_1).flatten()
         #get the direction vector from the current camera pose to the landmark
         direction_2 = landmark + (R_2.T @ t_2).flatten()
@@ -476,10 +464,6 @@ class VisualOdometry:
         new_keypoints, new_descriptors = self.detect_keypoints(self.image, self.num_keypoints, self.nonmaximum_suppression_radius)
         # switch rows and columns to get the correct format
         new_keypoints = new_keypoints[[1, 0], :]
-
-
-
-
 
         if len(self.image.shape) > 2:
             gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
@@ -545,23 +529,7 @@ class VisualOdometry:
         #Remove hidden state candidates that have less than 4 keypoints
         Hidden_state = [candidate for candidate in Hidden_state if candidate[0].shape[1] >= 4]
 
-
-
-        #### If there are enough keypoints tracked already we don't continue with the adding new landmarks and leave
-        #### Them in the hidden state for later.
-
-
-        #if landmarks_1.shape[1] > 500:
-        #    return keypoints_1, landmarks_1, descriptors_1, Hidden_state, np.array([]), np.array([]), np.array([])
-        
-        #elif landmarks_1.shape[1] <= 500:
-        self.landmarks_allowed = 10000#500 - landmarks_1.shape[1]
-
-
-
-
-
-
+        self.landmarks_allowed = 10000
 
 
     
@@ -702,10 +670,6 @@ class VisualOdometry:
         history.texts.append(f"-3. landmarks_1.shape after inliers filtering : {landmarks_1.shape}")
         descriptors_1 = descriptors_1[:, inliers]
         history.camera_position.append(-R_1.T @ t_1)
-
-        ###Adapt Angle Threshold and Number of Keypoints dynamically###
-        #tries to keep it between 200 an 500 keypoints
-
         
         
         self.threshold_angle = np.maximum(0.1,np.minimum(0.3, landmarks_1.shape[1] / 1400))
