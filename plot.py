@@ -20,6 +20,7 @@ class Plotter:
 
         # Pause logic
         self.paused = [False]
+        self.ds = args.ds
 
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration, initial_landmarks):
         if history.triangulated_landmarks[-1].size == 0:
@@ -213,22 +214,23 @@ class Plotter:
         #get last 40 points from camera_x and camera_z
         camera_x_last_40 = camera_x[-40:]
         camera_z_last_40 = camera_z[-40:]
+        if (len(camera_x_last_40) != 0 and len(camera_z_last_40) != 0) and self.ds != 1:
+         
+            #transform the camera_x_gt_last_40 and camera_z_gt_last_40 to match with the camera_x_last_40 and camera_z_last_40 and remember the transformation
+            M, _ = cv2.estimateAffinePartial2D(np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, np.array([camera_x_last_40, camera_z_last_40]).T)
+            if M is not None:
+                a, b = M[0,0], M[0,1]
+                scale = np.sqrt(a*a + b*b)
+                rotation = np.arctan2(b, a)
+                tx, ty = M[0,2], M[1,2]
 
-        #transform the camera_x_gt_last_40 and camera_z_gt_last_40 to match with the camera_x_last_40 and camera_z_last_40 and remember the transformation
-        M, _ = cv2.estimateAffinePartial2D(np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, np.array([camera_x_last_40, camera_z_last_40]).T)
-        if M is not None:
-            a, b = M[0,0], M[0,1]
-            scale = np.sqrt(a*a + b*b)
-            rotation = np.arctan2(b, a)
-            tx, ty = M[0,2], M[1,2]
+                ones = np.ones((len(camera_x_gt_last_40), 1))
+                gt_hom = np.hstack([np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, ones])
+                # Build full 3x3 matrix
+                M_full = np.vstack([M, [0,0,1]])
+                aligned_gt = (M_full @ gt_hom.T).T[:, :2]
 
-            ones = np.ones((len(camera_x_gt_last_40), 1))
-            gt_hom = np.hstack([np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, ones])
-            # Build full 3x3 matrix
-            M_full = np.vstack([M, [0,0,1]])
-            aligned_gt = (M_full @ gt_hom.T).T[:, :2]
-
-            ax_3d_1.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
+                ax_3d_1.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
 
         else: 
             ax_3d_1.plot(camera_x_gt_last_40, camera_z_gt_last_40, 'black', marker='*', markersize=3, label='Ground Truth Trajectory')

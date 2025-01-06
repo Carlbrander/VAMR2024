@@ -266,7 +266,7 @@ class VisualOdometry:
         keypoints_0.T.astype(np.float32),
         None,
         winSize=(31, 31),
-        maxLevel=8,
+        maxLevel=3,
         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.03))
 
 

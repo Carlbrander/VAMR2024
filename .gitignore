@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+kitti_harris/
+kitti_harris.mp4
+
 # C extensions
 *.so
 
