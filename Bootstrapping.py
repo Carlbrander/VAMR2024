@@ -130,9 +130,15 @@ def bootstrapping(args):
     # Set the random seed for reproducibility
     np.random.seed(42)
     
-    E, _ = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.999, 1.0)
+    E, inliers = cv2.findEssentialMat(matched_keypoints_0_xy, matched_keypoints_1_xy, K, cv2.RANSAC, 0.999, 1.0)
 
     # Recover the pose of the second camera
+    # Use inliers mask to filter the matched keypoints
+    matched_keypoints_0_xy = matched_keypoints_0_xy[inliers.ravel() == 1]
+    matched_keypoints_1_xy = matched_keypoints_1_xy[inliers.ravel() == 1]
+    matched_descriptors_1 = matched_descriptors_1[:, inliers.ravel() == 1]
+
+    # Recover the pose of the second camera using inlier points
     _, R, t, mask_pose = cv2.recoverPose(E, matched_keypoints_0_xy, matched_keypoints_1_xy, K)
 
     # Select inlier points
