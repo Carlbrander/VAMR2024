@@ -33,7 +33,7 @@ class Plotter:
 
         # Plot Dashboard
         self.plot_full_traj(history)
-        self.plot_top_view(history, history.triangulated_landmarks, history.R, history.t, triangulated_landmarks, self.fig)
+        self.plot_top_view(history, history.landmarks, history.R, history.t, triangulated_landmarks, self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
        # self.plot_text(img, history, current_iteration)
@@ -163,7 +163,7 @@ class Plotter:
         ax_3d_1.set_aspect('equal', adjustable='datalim')
 
         #plot old landmarks from the history in yellow until previous frame
-        for landmarks in history_landmarks[max(-20, -len(history_landmarks)):-1]:
+        for landmarks in history_landmarks[max(-2, -len(history_landmarks)):-1]:
             if landmarks.size != 0:
                 x_std = np.std(np.abs(landmarks[0, :]))
                 z_std = np.std(np.abs(landmarks[2, :]))
@@ -172,7 +172,7 @@ class Plotter:
                 z_mean = np.mean(landmarks[2, :])
 
                 # Filter landmarks within one standard deviation
-                mask = (np.abs(landmarks[0, :] - x_mean) <= x_std) & (np.abs(landmarks[2, :] - z_mean) <= z_std)
+                mask = (np.abs(landmarks[0, :] - x_mean) <= 3*x_std) & (np.abs(landmarks[2, :] - z_mean) <= 3*z_std)
                 filtered_landmarks = landmarks[:, mask]
             else:
                 filtered_landmarks = np.array([[], [], []])
@@ -241,7 +241,7 @@ class Plotter:
             z_mean = np.mean(triangulated_landmarks[2, :])
             
             # Filter landmarks within one standard deviation
-            mask = (np.abs(triangulated_landmarks[0, :] - x_mean) <= x_std) & (np.abs(triangulated_landmarks[2, :] - z_mean) <= z_std)
+            mask = (np.abs(triangulated_landmarks[0, :] - x_mean) <= 3*x_std) & (np.abs(triangulated_landmarks[2, :] - z_mean) <= 3*z_std)
             filtered_landmarks = triangulated_landmarks[:, mask]
         else:
             filtered_landmarks = np.array([[], [], []])
