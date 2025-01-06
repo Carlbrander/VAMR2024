@@ -260,7 +260,7 @@ def continuous_operation(keypoints, landmarks, descriptors, R, t, args, history)
         RMS = 0
         is_benchmark = True
         if args.visualize_every_nth_frame > 0 and i % args.visualize_every_nth_frame == 0:
-            plotter.visualize_dashboard(history, image, RMS, is_benchmark, i)
+            plotter.visualize_dashboard(history, image, RMS, is_benchmark, i, landmarks)
         
         #update previous image
         prev_img = image

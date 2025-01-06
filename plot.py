@@ -22,14 +22,18 @@ class Plotter:
         # Pause logic
         self.paused = [False]
 
-    def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
+    def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration, initial_landmarks):
+        if history.triangulated_landmarks[-1].size == 0:
+            triangulated_landmarks = initial_landmarks
+        else:
+            triangulated_landmarks = history.triangulated_landmarks[-1]
         # Clear the figure to update it
         self.fig.clf()
         self.i = current_iteration
 
         # Plot Dashboard
         self.plot_full_traj(history)
-        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        self.plot_top_view(history, history.landmarks, history.R, history.t, triangulated_landmarks, self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
        # self.plot_text(img, history, current_iteration)
