@@ -2,7 +2,6 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 import cv2
 import numpy as np
-import platform
 import textwrap
 
 class Plotter:
@@ -165,14 +164,25 @@ class Plotter:
         #plot old landmarks from the history in yellow until previous frame
         for landmarks in history_landmarks[max(-2, -len(history_landmarks)):-1]:
             if landmarks.size != 0:
-                x_std = np.std(np.abs(landmarks[0, :]))
-                z_std = np.std(np.abs(landmarks[2, :]))
+
+                x_vals_1 = landmarks[0, :]
+                z_vals_1 = landmarks[2, :]
+                x_std = np.std(np.abs(x_vals_1))
+                z_std = np.std(np.abs(z_vals_1))
 
                 x_mean = np.mean(landmarks[0, :])
                 z_mean = np.mean(landmarks[2, :])
 
+                distances = np.sqrt((x_vals_1 - x_mean)**2 + (z_vals_1 - z_mean)**2)
+
+                dist_std = np.std(distances)
+                threshold = dist_std
+
+
+
                 # Filter landmarks within one standard deviation
-                mask = (np.abs(landmarks[0, :] - x_mean) <= 3*x_std) & (np.abs(landmarks[2, :] - z_mean) <= 3*z_std)
+                #mask = (np.abs(landmarks[0, :] - x_mean) <= x_std) & (np.abs(landmarks[2, :] - z_mean) <= z_std)
+                mask = distances <= threshold
                 filtered_landmarks = landmarks[:, mask]
             else:
                 filtered_landmarks = np.array([[], [], []])
@@ -206,21 +216,22 @@ class Plotter:
 
         #transform the camera_x_gt_last_40 and camera_z_gt_last_40 to match with the camera_x_last_40 and camera_z_last_40 and remember the transformation
         M, _ = cv2.estimateAffinePartial2D(np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, np.array([camera_x_last_40, camera_z_last_40]).T)
+        if M is not None:
+            a, b = M[0,0], M[0,1]
+            scale = np.sqrt(a*a + b*b)
+            rotation = np.arctan2(b, a)
+            tx, ty = M[0,2], M[1,2]
 
-        a, b = M[0,0], M[0,1]
-        scale = np.sqrt(a*a + b*b)
-        rotation = np.arctan2(b, a)
-        tx, ty = M[0,2], M[1,2]
+            ones = np.ones((len(camera_x_gt_last_40), 1))
+            gt_hom = np.hstack([np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, ones])
+            # Build full 3x3 matrix
+            M_full = np.vstack([M, [0,0,1]])
+            aligned_gt = (M_full @ gt_hom.T).T[:, :2]
 
-        ones = np.ones((len(camera_x_gt_last_40), 1))
-        gt_hom = np.hstack([np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, ones])
-        # Build full 3x3 matrix
-        M_full = np.vstack([M, [0,0,1]])
-        aligned_gt = (M_full @ gt_hom.T).T[:, :2]
+            ax_3d_1.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
 
-        ax_3d_1.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
-
-
+        else: 
+            ax_3d_1.plot(camera_x_gt_last_40, camera_z_gt_last_40, 'black', marker='*', markersize=3, label='Ground Truth Trajectory')
 
 
         ax_3d_1.scatter(camera_x[-40:], camera_z[-40:], c='g', marker='x', label='Estimated Trajectory')
@@ -234,14 +245,25 @@ class Plotter:
         #this is to make sure that the plot is not too zoomed in and doesnt explode if there is one mismatch
 
         if triangulated_landmarks.size != 0:
-            x_std = np.std(np.abs(triangulated_landmarks[0, :]))
-            z_std = np.std(np.abs(triangulated_landmarks[2, :]))
 
-            x_mean = np.mean(triangulated_landmarks[0, :])
-            z_mean = np.mean(triangulated_landmarks[2, :])
+            x_vals = triangulated_landmarks[0, :]
+            z_vals = triangulated_landmarks[2, :]
+    
+            x_std = np.std(np.abs(x_vals))
+            z_std = np.std(np.abs(z_vals))
+
+            x_mean = np.mean(x_vals)
+            z_mean = np.mean(z_vals)
+
+            distances = np.sqrt((x_vals - x_mean)**2 + (z_vals - z_mean)**2)
+
+            dist_std = np.std(distances)
+            threshold =  dist_std
+    
             
             # Filter landmarks within one standard deviation
-            mask = (np.abs(triangulated_landmarks[0, :] - x_mean) <= 3*x_std) & (np.abs(triangulated_landmarks[2, :] - z_mean) <= 3*z_std)
+            #mask = (np.abs(triangulated_landmarks[0, :] - x_mean) <= x_std) & (np.abs(triangulated_landmarks[2, :] - z_mean) <= z_std)
+            mask = distances <= threshold
             filtered_landmarks = triangulated_landmarks[:, mask]
         else:
             filtered_landmarks = np.array([[], [], []])

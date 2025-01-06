@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
 #solution scripts from exercise 3 for feature detection and matching using shi-tomasi
 from bootstrapping_utils.exercise_3.describe_keypoints import describeKeypoints
@@ -267,7 +266,7 @@ class VisualOdometry:
         keypoints_0.T.astype(np.float32),
         None,
         winSize=(31, 31),
-        maxLevel=3,
+        maxLevel=8,
         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.03))
 
 
