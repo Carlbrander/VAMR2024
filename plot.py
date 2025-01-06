@@ -33,7 +33,7 @@ class Plotter:
 
         # Plot Dashboard
         self.plot_full_traj(history)
-        self.plot_top_view(history, history.landmarks, history.R, history.t, triangulated_landmarks, self.fig)
+        self.plot_top_view(history, history.triangulated_landmarks, history.R, history.t, triangulated_landmarks, self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
        # self.plot_text(img, history, current_iteration)
@@ -105,7 +105,7 @@ class Plotter:
         
         ax_3d.set_title('Full Trajectory')
         ax_3d.axis('equal')
-        ax_3d.legend(fontsize=8, loc='best')
+        ax_3d.legend(fontsize=8, loc='upper right')
         
 
         # #get a set of history landmarks without the latest landmarks (as they are also in the history landmarks as duplicated likely)
@@ -162,9 +162,25 @@ class Plotter:
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
 
-        # #plot old landmarks from the history in yellow until previous frame
-        # for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
-        #     ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
+        #plot old landmarks from the history in yellow until previous frame
+        for landmarks in history_landmarks[max(-20, -len(history_landmarks)):-1]:
+            if landmarks.size != 0:
+                x_std = np.std(np.abs(landmarks[0, :]))
+                z_std = np.std(np.abs(landmarks[2, :]))
+
+                x_mean = np.mean(landmarks[0, :])
+                z_mean = np.mean(landmarks[2, :])
+
+                # Filter landmarks within one standard deviation
+                mask = (np.abs(landmarks[0, :] - x_mean) <= x_std) & (np.abs(landmarks[2, :] - z_mean) <= z_std)
+                filtered_landmarks = landmarks[:, mask]
+            else:
+                filtered_landmarks = np.array([[], [], []])
+
+            # Plot filtered landmarks with a single label
+            if filtered_landmarks.size != 0:
+                ax_3d_1.scatter(filtered_landmarks[0, :], filtered_landmarks[2, :], color=(128/255, 0, 128/255), marker='o', s=2)
+        ax_3d_1.scatter([], [], color=(128/255, 0, 128/255), marker='o', s=2, label='Tracked Landmarks')
 
         # #plot landmarks from current frame in blue which have not been plotted before
         # ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
@@ -232,7 +248,7 @@ class Plotter:
 
         # Plot filtered landmarks
         if filtered_landmarks.size != 0:
-            ax_3d_1.scatter(filtered_landmarks[0, :], filtered_landmarks[2, :], color='lightgreen', marker='o', s=4, label='Triangulated Landmarks')
+            ax_3d_1.scatter(filtered_landmarks[0, :], filtered_landmarks[2, :], color='lightgreen', marker='o', s=4, label='Added Landmarks')
 
         ax_3d_1.legend()
         # x_lim = (-1 * x_std) + x_mean, (1 * x_std) + x_mean
@@ -278,7 +294,7 @@ class Plotter:
         #plot current keypoints blue
         for keypoints_from_history in keypoints_history[-1].T:
             center = tuple(keypoints_from_history.astype(int))
-            cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
+            cv2.circle(image_plotting, center, 3, (128, 0, 128), -1)
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
@@ -301,7 +317,7 @@ class Plotter:
 
         #plot number of tracked landmarks in each step
         tracked_landmarks = [landmarks.shape[1] for landmarks in history_landmarks]
-        ax_4.plot(tracked_landmarks[-20:], label='Tracked Landmarks', color='yellow')
+        ax_4.plot(tracked_landmarks[-20:], label='Tracked Landmarks', color=(128/255, 0, 128/255))
 
         #plot number of newly triangulated landmarks in each step
         triangulated_landmarks = []
@@ -310,7 +326,7 @@ class Plotter:
                 triangulated_landmarks.append(0)
             else:
                 triangulated_landmarks.append(landmarks.shape[1])
-        ax_4.plot(triangulated_landmarks[-20:], label='Triangulated Landmarks', color='lightgreen')
+        ax_4.plot(triangulated_landmarks[-20:], label='Added Landmarks', color='lightgreen')
 
         #plot sum of landmarks in the hidden state
         landmarks_count = []
