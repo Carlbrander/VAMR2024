@@ -707,8 +707,10 @@ class VisualOdometry:
         #tries to keep it between 200 an 500 keypoints
 
         
-        
-        self.threshold_angle = np.maximum(0.1,np.minimum(0.3, landmarks_1.shape[1] / 1400))
+        if self.ds == 1 or self.ds == 0:
+            self.threshold_angle = np.maximum(0.1,np.minimum(0.3, landmarks_1.shape[1] / 2800))
+        else:
+            self.threshold_angle = np.maximum(0.1,np.minimum(0.3, landmarks_1.shape[1] / 1400))
 
 
 
