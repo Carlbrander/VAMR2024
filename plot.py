@@ -73,7 +73,34 @@ class Plotter:
         if len(self.gt_camera_position) > 0:
             gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
             bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
+
+            #only use first and third element of est_trans and remove the last 1 dimension
+            est_trans = est_trans.reshape(-1,3)[:, [0, 2]]
+
+            #get last 40 points from est_trans
+            #est_trans_last_40 = est_trans[-200:]
+            #get last 40 points from gt trans
+            #gt_trans_last_40 = gt_trans[-200:]
+
+            #transform the gt_trans_last_40 to match with the est_trans_last_40 and remember the transformation
+            
+            #M, _ = cv2.estimateAffinePartial2D(gt_trans_last_40, est_trans_last_40)
+#
+            #a, b = M[0,0], M[0,1]
+            #scale = np.sqrt(a*a + b*b)
+            #rotation = np.arctan2(b, a)
+            #tx, ty = M[0,2], M[1,2]
+#
+            #ones = np.ones((gt_trans.shape[0], 1))
+            #gt_hom = np.hstack([gt_trans, ones])
+            ## Build full 3x3 matrix
+            #M_full = np.vstack([M, [0,0,1]])
+            #aligned_gt = (M_full @ gt_hom.T).T[:, :2]
+
+
             ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
+        
+            #ax_3d.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
             # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Full Trajectory')
@@ -151,8 +178,37 @@ class Plotter:
         camera_z = [point[2] for point in history.camera_position]
         camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
         camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
-        ax_3d_1.scatter(camera_x[-20:], camera_z[-20:], c='g', marker='x', label='Estimated Trajectory')
-        ax_3d_1.plot(camera_x_gt[-20:], camera_z_gt[-20:], 'k-', label='Ground Truth Trajectory')
+
+        camera_x_gt_last_40 = camera_x_gt[-40:]
+        camera_z_gt_last_40 = camera_z_gt[-40:]
+
+        assert len(camera_x_gt_last_40) == len(camera_z_gt_last_40)
+
+        #get last 40 points from camera_x and camera_z
+        camera_x_last_40 = camera_x[-40:]
+        camera_z_last_40 = camera_z[-40:]
+
+        #transform the camera_x_gt_last_40 and camera_z_gt_last_40 to match with the camera_x_last_40 and camera_z_last_40 and remember the transformation
+        M, _ = cv2.estimateAffinePartial2D(np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, np.array([camera_x_last_40, camera_z_last_40]).T)
+
+        a, b = M[0,0], M[0,1]
+        scale = np.sqrt(a*a + b*b)
+        rotation = np.arctan2(b, a)
+        tx, ty = M[0,2], M[1,2]
+
+        ones = np.ones((len(camera_x_gt_last_40), 1))
+        gt_hom = np.hstack([np.array([camera_x_gt_last_40, camera_z_gt_last_40]).T, ones])
+        # Build full 3x3 matrix
+        M_full = np.vstack([M, [0,0,1]])
+        aligned_gt = (M_full @ gt_hom.T).T[:, :2]
+
+        ax_3d_1.plot(aligned_gt[:, 0], aligned_gt[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
+
+
+
+
+        ax_3d_1.scatter(camera_x[-40:], camera_z[-40:], c='g', marker='x', label='Estimated Trajectory')
+        #ax_3d_1.plot(camera_x_gt[-20:], camera_z_gt[-20:], 'k-', label='Ground Truth Trajectory')
 
 
         # Plot the latest pose in red
@@ -200,7 +256,7 @@ class Plotter:
 
         #add arrow in the direction the camera is looking:
         ax_3d_1.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
-        ax_3d_1.set_title('Trajectory of last 20 frames and landmarks') 
+        ax_3d_1.set_title('Trajectory of last 40 frames and landmarks') 
         
     def plot_2d(self, img, history):
         
