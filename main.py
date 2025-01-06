@@ -42,7 +42,7 @@ def parse_arguments():
         args.nonmaximum_supression_radius = 5
         args.descriptor_radius = 9
         args.match_lambda = 1
-        
+
 
     if args.use_sift == False:
         args.threshold_angle = 0.1
@@ -53,6 +53,7 @@ def parse_arguments():
 
     args.min_baseline = 0.0000001
     args.num_keypoints = 1000
+
 
     return args
 
@@ -154,10 +155,8 @@ def dataset_setup(args):
         img1 = cv2.cvtColor(cv2.imread(os.path.join(malaga_path, 'malaga-urban-dataset-extract-07_rectified_800x600_Images', left_images[bootstrap_frames[1]])), cv2.COLOR_BGR2GRAY)
         args.malaga_path = malaga_path
     elif ds == 2:
-        if args.use_sift:
-            bootstrap_frames = [0, 11]
-        else:
-            bootstrap_frames = [0, 12]
+        
+        bootstrap_frames = [0, 11]
         img0 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[0]:05d}.png')), cv2.COLOR_BGR2GRAY)
         img1 = cv2.cvtColor(cv2.imread(os.path.join(parking_path, f'images/img_{bootstrap_frames[1]:05d}.png')), cv2.COLOR_BGR2GRAY)
         args.parking_path = parking_path
