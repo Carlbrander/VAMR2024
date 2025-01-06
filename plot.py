@@ -23,193 +23,16 @@ class Plotter:
         self.paused = [False]
 
     def visualize_dashboard(self, history, img, RMS, is_benchmark, current_iteration):
-        
         # Clear the figure to update it
         self.fig.clf()
         self.i = current_iteration
 
-        original_image = img.copy()
-
         # Plot Dashboard
-        self.plot_3d(history.landmarks, history, history.triangulated_landmarks[-1])
-        #self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
+        self.plot_full_traj(history)
+        self.plot_top_view(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
         self.plot_2d(img, history)
         self.plot_line_graph(history.landmarks, history.Hidden_states, history.triangulated_landmarks, self.fig)
-        #self.plot_text(img, history, current_iteration)
-        #self.plot_top_view__constant_zoom(history, history.landmarks, history.R, history.t, history.triangulated_landmarks[-1], self.fig)
-
-
-        bins = np.linspace(0, 2*self.threshold_angle, 51)  # 50 bins between 0 and 20 degrees
-        #remove all angles under the threshold from angles_before
-        history.angles_before[-1] = [angle for angle in history.angles_before[-1] if angle > history.threshold_angles[-1]]
-
-        #plot histogram of annlge above
-        ax_3d_2 = self.fig.add_subplot(236)
-        ax_3d_2.hist(history.angles_after[-1], bins=bins, color='r', alpha=0.7)
-        ax_3d_2.hist(history.angles_before[-1], bins=bins, color='b', alpha=0.7)
-        ax_3d_2.set_title('Histogram of Angles In all Current Hidden States summed up')
-        ax_3d_2.set_xlabel('Angle in radian')
-        ax_3d_2.set_ylabel('Frequency')
-        ax_3d_2.set_xlim(0, 2*self.threshold_angle)
-        ax_3d_2.set_xticks(np.arange(0, 2*self.threshold_angle, 2*self.threshold_angle/10))
-     
-        #make x text tick vertical
-        plt.xticks(rotation=90)
-
-
-
-
-
-
-        ##Plot another RGB image this time with all hidden states colord by age
-
-        #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(233)
-        #make sure the image is in color
-        image_plotting = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
-
-        #get newest frame number
-        newest_frame = history.Hidden_states[-1][7]
-
-        #plot all hidden states in different colors
-        #older ones in red, newer ones in green
-        #create color map
-
-        oldest_frame = np.min([candidate[7] for candidate in history.current_Hidden_state if len(candidate) > 0])
-        
-        ### COLOR MAP BY HOW NEW THE HIDDEN STATE IS ###
-        
-        #color_map = np.linspace(0, 255, newest_frame+1-oldest_frame)
-#
-        #for candiate in history.current_Hidden_state:
-        #    if len(candiate) == 0:
-        #        continue
-        #    if len(candiate[3]) == 0:
-        #        continue
-        #    for keypoint in candiate[3].T:
-        #        center = tuple(keypoint.astype(int))
-#
-        #        cv2.circle(image_plotting, center, 3, (255-int(color_map[candiate[7]-oldest_frame]), int(color_map[candiate[7]-oldest_frame]), 0), -1)
-      #
-        #ax_2d.imshow(image_plotting)
-        #ax_2d.set_title('2D Plot All Hidden state Keypoints (Red = Old, Green = New)')
-
-        ### COLOR MAP BY ANGLE OF POINT ###
-
-        angles_and_keypoints = history.angles_and_keypoints[-1]
-        #angles and keypoints is a list of arrays with the angle and the keypoint
-
-       
-        #colors red to green
-        #angle of threshold angle = 255 (red)
-        #angle of 0 = 0 (green)
-        
-        for angle, keypoint in angles_and_keypoints:
-            
-            center = tuple(keypoint.astype(int))
-            green_color = 255-int(angle*255/self.threshold_angle)
-            red_color = int(angle*255/self.threshold_angle)
-            cv2.circle(image_plotting, center, 3, (red_color, green_color, 0), -1)
-        ax_2d.imshow(image_plotting)
-        ax_2d.set_title(f'2D Plot All Hidden states (Red = Angle {self.threshold_angle}, Green = Angle 0)')
-
-
-
-
-        ###COLOR = ANGLE OF POINTS BUT FROM TOP VIEW ###
-
-        ax_2d_2 = self.fig.add_subplot(232)
-
-
-        ax_2d_2.set_xlabel('X')
-        ax_2d_2.set_ylabel('Z')
-        ax_2d_2.set_aspect('equal', adjustable='datalim')
-
-        #angles_and_landmarks_r_t.append([angle, landmark, candidate[1], candidate[2], candidate[4], candidate[5]])
-
-        landmarks_plot = np.array([landmark for angle, landmark, r_0, t_0, r_1, t_1 in history.angles_and_landmarks_r_t[-1]]).T
-        #plot landmarks from current frame in blue which have not been plotted before
-        
-        for angle, landmark, r_0, t_0, r_1, t_1 in history.angles_and_landmarks_r_t[-1]:
-            
-            center = tuple(landmark.astype(int))
-            green_color = np.clip(255-int(angle*255/self.threshold_angle), 0, 255)
-            red_color = np.clip(int(angle*255/self.threshold_angle), 0, 255)
-
-            ax_2d_2.scatter(landmark[0], landmark[2], c=[(red_color/255, green_color/255, 0)], marker='o', s = 2)
-
-        camera_x = [point[0] for point in history.camera_position]
-        camera_z = [point[2] for point in history.camera_position]
-        camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
-        camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
-        ax_2d_2.scatter(camera_x, camera_z, c='g', marker='x')
-        ax_2d_2.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
-        ax_2d_2.legend()
-
-
-        # Plot the latest pose in red
-        ax_2d_2.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x')
-
-
-
-      
-        #set the limits of the plot to 2* the standard deviation of the landmarks in x and z direction
-
-        if len(landmarks_plot) == 0:
-            ax_2d_2.set_xlim(-1, 1)
-            ax_2d_2.set_ylim(-1, 1)
-        else:
-
-            #remove any landmarks that are too far away from the mean
-            landmarks_plot = landmarks_plot[:, np.all(np.abs(landmarks_plot - np.mean(landmarks_plot, axis=1)[:, None]) < 2 * np.std(landmarks_plot, axis=1)[:, None], axis=0)]
-
-            x_std = np.std(np.abs(landmarks_plot[0, :]))
-            z_std = np.std(np.abs(landmarks_plot[2, :]))
-
-            x_mean = np.mean(landmarks_plot[0, :])
-            z_mean = np.mean(landmarks_plot[2, :])
-
-            ax_2d_2.set_xlim((-2 * x_std )+ x_mean, (2 * x_std) + x_mean)
-            ax_2d_2.set_ylim((-2 * z_std) + z_mean, (2 * z_std) + z_mean)
-
-        # Compute the camera's forward direction in world coordinates
-        forward_vector = history.R[-1].T @ np.array([0, 0, 1])
-        
-        dx = forward_vector[0]
-        dz = forward_vector[2]
-
-        # Normalize the direction vector
-        norm = np.sqrt(dx**2 + dz**2)
-        dx /= norm
-        dz /= norm
-
-        #add arrow in the direction the camera is looking:
-        ax_2d_2.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
-        ax_2d_2.set_title(f'Top View of HIDDEN STATES colored by angle (red={self.threshold_angle}, green=0)')  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-        
-
-
-
+       # self.plot_text(img, history, current_iteration)
 
         # Add text on a free space between subplots for tracking parameters
         self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
@@ -223,33 +46,29 @@ class Plotter:
         self.pause_button.on_clicked(self.toggle_pause)
 
         self.fig.canvas.draw()
-        if self.visualize_dashboard_1:
-            plt.show(block=False)
-            plt.pause(0.00000000001)
-            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
-        else:
-            
-            plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
+        plt.show(block=False)
+        plt.pause(0.00000000001)
+        plt.savefig("output/output_{0:06}.png".format(len(history.camera_position)))
 
         # Pause loop
         while self.paused[0]:
             plt.pause(0.1)
 
-    def plot_3d(self, history_landmarks, history, triangulated_landmarks):
-        ax_3d = self.fig.add_subplot(231)
+    def plot_full_traj(self, history):
+        ax_3d = self.fig.add_subplot(221)
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
-        ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'r', marker='*', markersize=3, label='Estimated pose')
+        ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'r', marker='*', markersize=3, label='Estimated Trajectory')
         
         # Plot ground truth trajectory if available
         if len(self.gt_camera_position) > 0:
             gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
             bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
-            ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled GT')
-            ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
+            ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled Ground Truth')
+            # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
-        ax_3d.set_title('Estimated trajectory')
+        ax_3d.set_title('Full Trajectory')
         ax_3d.axis('equal')
         ax_3d.legend(fontsize=8, loc='best')
         
@@ -303,7 +122,7 @@ class Plotter:
        
     def plot_top_view(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
         #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
-        ax_3d_1 = ax.add_subplot(232)
+        ax_3d_1 = ax.add_subplot(222)
         ax_3d_1.set_xlabel('X')
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
@@ -360,7 +179,7 @@ class Plotter:
 
         #add arrow in the direction the camera is looking:
         ax_3d_1.quiver(camera_x[-1], camera_z[-1], dx, dz, color='r', pivot='tail')
-        ax_3d_1.set_title('Top View')  
+        ax_3d_1.set_title('Trajectory of last 20 frames and landmarks') 
         
     def plot_2d(self, img, history):
         
@@ -368,7 +187,7 @@ class Plotter:
         keypoints_history = history.keypoints
 
         #add image to bottom subplot
-        ax_2d = self.fig.add_subplot(234)
+        ax_2d = self.fig.add_subplot(223)
         #make sure the image is in color
         image_plotting = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -401,7 +220,7 @@ class Plotter:
         # 2) number of newly triangulated landmarks in each step
         # 3) sum of landmarks in the hidden state
 
-        ax_4 = ax.add_subplot(235)
+        ax_4 = ax.add_subplot(224)
 
         #plot number of tracked landmarks in each step
         tracked_landmarks = [landmarks.shape[1] for landmarks in history_landmarks]
