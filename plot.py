@@ -8,9 +8,9 @@ import textwrap
 class Plotter:
     def __init__(self, camera_positions, camera_position_bm, bootstrap_frames,args):
         self.fig = plt.figure(figsize=(18, 10))
-        self.mng = plt.get_current_fig_manager()
-        if platform.system() != 'Linux':
-            self.mng.window.state('normal')
+        # self.mng = plt.get_current_fig_manager()
+        # if platform.system() != 'Linux':
+        #     self.mng.window.state('normal')
         self.gt_camera_position = camera_positions[2:-1]
         self.camera_position_bm = camera_position_bm
         self.bootstrap_frames = bootstrap_frames
