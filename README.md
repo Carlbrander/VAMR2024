@@ -35,3 +35,12 @@ python main.py
 ```
 
 
+### Hardware Used ###
+
+- OS: Ubuntu 22.04LTS
+- Used Threads /CPU Cores: 1
+- CPU: i7-1280P
+- RAM: 16GB
+- Laptop: Lenovo Yoga i9 14IAP7
+
+
