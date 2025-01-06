@@ -35,10 +35,10 @@ class Plotter:
        # self.plot_text(img, history, current_iteration)
 
         # Add text on a free space between subplots for tracking parameters
-        self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
-        self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
+       # self.fig.text(0.27, 0.5, f'Threshold Angle: {history.threshold_angles[-1]}', ha='center', va='center', fontsize=12)
+       # self.fig.text(0.27, 0.47, f'New Keypoints Detection: {history.num_keypoints[-1]}', ha='center', va='center', fontsize=12)
         color = 'green' if is_benchmark else 'black'
-        self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
+       # self.fig.text(0.27, 0.44, f'RMS Trajectory: {RMS}', ha='center', va='center', fontsize=12, color=color)
         
         # Draw the pause button
         pause_button_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
@@ -59,13 +59,13 @@ class Plotter:
         
         # Plot estimated trajectory
         est_trans = np.array(history.camera_position)
-        ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'r', marker='*', markersize=3, label='Estimated Trajectory')
+        ax_3d.plot(est_trans[:, 0], est_trans[:, 2], 'g', marker='*', markersize=3, label='Estimated Trajectory')
         
         # Plot ground truth trajectory if available
         if len(self.gt_camera_position) > 0:
             gt_trans = np.array(self.gt_camera_position[self.bootstrap_frames[0]+1:self.i-1])
             bm_trans = np.array(self.camera_position_bm[:len(history.camera_position)])
-            ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'b', marker='*', markersize=3, label='Scaled Ground Truth')
+            ax_3d.plot(gt_trans[:, 0], gt_trans[:, 1], 'black', marker='*', markersize=3, label='Scaled Ground Truth')
             # ax_3d.plot(bm_trans[:, 0], bm_trans[:, 1], 'y', marker='*', markersize=3, label='Benchmark')
         
         ax_3d.set_title('Full Trajectory')
@@ -122,46 +122,59 @@ class Plotter:
        
     def plot_top_view(self, history, history_landmarks, history_R, history_t, triangulated_landmarks, ax):
         #on second subplot show a 2D plot as top view (X-Z plane) with all landmarks and cameras
-        ax_3d_1 = ax.add_subplot(222)
+        ax_3d_1 = self.fig.add_subplot(222)
         ax_3d_1.set_xlabel('X')
         ax_3d_1.set_ylabel('Z')
         ax_3d_1.set_aspect('equal', adjustable='datalim')
 
-        #plot old landmarks from the history in yellow until previous frame
-        for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
-            ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
+        # #plot old landmarks from the history in yellow until previous frame
+        # for landmarks in history_landmarks[max(-20,-len(history_landmarks)):-1]:
+        #     ax_3d_1.scatter(landmarks[0, :], landmarks[2, :], c='y', marker='o', s = 2)
 
-        #plot landmarks from current frame in blue which have not been plotted before
-        ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
+        # #plot landmarks from current frame in blue which have not been plotted before
+        # ax_3d_1.scatter(history_landmarks[-1][0, :], history_landmarks[-1][2, :], c='b', marker='o', s = 2)
 
         #plot triangulated landmarks in red
-        if isinstance(triangulated_landmarks, np.ndarray) and triangulated_landmarks.size != 0:
-            ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
+        # if isinstance(triangulated_landmarks, np.ndarray) and triangulated_landmarks.size != 0:
+        #     ax_3d_1.scatter(triangulated_landmarks[0, :], triangulated_landmarks[2, :], c='r', marker='o', s = 4)
 
 
         camera_x = [point[0] for point in history.camera_position]
         camera_z = [point[2] for point in history.camera_position]
         camera_x_gt = [point[0] for point in self.gt_camera_position[:len(history.camera_position)]]
         camera_z_gt = [point[1] for point in self.gt_camera_position[:len(history.camera_position)]]
-        ax_3d_1.scatter(camera_x, camera_z, c='g', marker='x')
-        ax_3d_1.plot(camera_x_gt, camera_z_gt, 'k-', label='Ground Truth Trajectory')
-        ax_3d_1.legend()
+        ax_3d_1.scatter(camera_x[-20:], camera_z[-20:], c='g', marker='x', label='Estimated Trajectory')
+        ax_3d_1.plot(camera_x_gt[-20:], camera_z_gt[-20:], 'k-', label='Ground Truth Trajectory')
 
 
         # Plot the latest pose in red
-        ax_3d_1.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x')
+        ax_3d_1.scatter(history.camera_position[-1][0], history.camera_position[-1][2], c='r', marker='x', label='Estimated Current Position')
 
         #set the limits of the plot to 4* the standard deviation of the landmarks in x and z direction
         #this is to make sure that the plot is not too zoomed in and doesnt explode if there is one mismatch
 
-        x_std = np.std(np.abs(history_landmarks[-1][0, :]))
-        z_std = np.std(np.abs(history_landmarks[-1][2, :]))
+        if triangulated_landmarks.size != 0:
+            x_std = np.std(np.abs(triangulated_landmarks[0, :]))
+            z_std = np.std(np.abs(triangulated_landmarks[2, :]))
 
-        x_mean = np.mean(history_landmarks[-1][0, :])
-        z_mean = np.mean(history_landmarks[-1][2, :])
+            x_mean = np.mean(triangulated_landmarks[0, :])
+            z_mean = np.mean(triangulated_landmarks[2, :])
+            
+            # Filter landmarks within one standard deviation
+            mask = (np.abs(triangulated_landmarks[0, :] - x_mean) <= x_std) & (np.abs(triangulated_landmarks[2, :] - z_mean) <= z_std)
+            filtered_landmarks = triangulated_landmarks[:, mask]
+        else:
+            filtered_landmarks = np.array([[], [], []])
 
-        ax_3d_1.set_xlim((-4 * x_std )+ x_mean, (4 * x_std) + x_mean)
-        ax_3d_1.set_ylim((-4 * z_std) + z_mean, (4 * z_std) + z_mean)
+        # Plot filtered landmarks
+        if filtered_landmarks.size != 0:
+            ax_3d_1.scatter(filtered_landmarks[0, :], filtered_landmarks[2, :], color='lightgreen', marker='o', s=4, label='Triangulated Landmarks')
+
+        ax_3d_1.legend()
+        # x_lim = (-1 * x_std) + x_mean, (1 * x_std) + x_mean
+        # z_lim = (-1 * z_std) + z_mean, (1 * z_std) + z_mean
+        # ax_3d_1.set_xlim(x_lim)
+        # ax_3d_1.set_ylim(z_lim)
 
         #ax_3d_1.set_xlim((-4 * x_std )+ camera_x, (4 * x_std) + camera_x)
         #ax_3d_1.set_ylim((-4 * z_std) + camera_z, (4 * z_std) + camera_z)
@@ -201,12 +214,12 @@ class Plotter:
         #plot current keypoints blue
         for keypoints_from_history in keypoints_history[-1].T:
             center = tuple(keypoints_from_history.astype(int))
-            cv2.circle(image_plotting, center, 3, (255, 0, 0), -1)
+            cv2.circle(image_plotting, center, 3, (0, 255, 255), -1)
 
         #plot new keypoints in red
         for kp in triangulated_keypoints.T:
             center = tuple(kp.astype(int))
-            cv2.circle(image_plotting, center, 2, (0, 0, 255), -1)
+            cv2.circle(image_plotting, center, 2, (0, 255, 0), -1)
 
         image_rgb = cv2.cvtColor(image_plotting, cv2.COLOR_BGR2RGB)
 
@@ -224,7 +237,7 @@ class Plotter:
 
         #plot number of tracked landmarks in each step
         tracked_landmarks = [landmarks.shape[1] for landmarks in history_landmarks]
-        ax_4.plot(tracked_landmarks, label='Tracked Landmarks', color='b')
+        ax_4.plot(tracked_landmarks[-20:], label='Tracked Landmarks', color='yellow')
 
         #plot number of newly triangulated landmarks in each step
         triangulated_landmarks = []
@@ -233,7 +246,7 @@ class Plotter:
                 triangulated_landmarks.append(0)
             else:
                 triangulated_landmarks.append(landmarks.shape[1])
-        ax_4.plot(triangulated_landmarks, label='Triangulated Landmarks', color='r')
+        ax_4.plot(triangulated_landmarks[-20:], label='Triangulated Landmarks', color='lightgreen')
 
         #plot sum of landmarks in the hidden state
         landmarks_count = []
@@ -249,11 +262,11 @@ class Plotter:
                 landmarks_count.append(candidate[0].shape[1])  
 
         #create a list with the sum of all values left of the current one for each element
-        landmarks_sums = []
-        for i in range(len(landmarks_count)):
-            landmarks_sums.append(np.sum(landmarks_count[:i+1]))
-        landmarks_sums = [0] + [0] + landmarks_sums
-        ax_4.plot(landmarks_sums, label='Sum of Landmarks in Hidden State', color='g')
+        # landmarks_sums = []
+        # for i in range(len(landmarks_count)):
+        #     landmarks_sums.append(np.sum(landmarks_count[:i+1]))
+        # landmarks_sums = [0] + [0] + landmarks_sums
+        # ax_4.plot(landmarks_sums, label='Sum of Landmarks in Hidden State', color='g')
 
 
 
